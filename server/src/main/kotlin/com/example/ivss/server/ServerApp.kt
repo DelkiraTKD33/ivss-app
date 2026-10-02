@@ -1,6 +1,9 @@
 package com.example.ivss.server
 
+import com.example.ivss.server.db.EmpleadosTable
+import com.example.ivss.server.services.ExcelImportService
 import io.ktor.http.*
+import io.ktor.http.content.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
@@ -12,6 +15,10 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.transactions.transaction
 import java.util.concurrent.ConcurrentHashMap
 
 // ==========================================
@@ -69,7 +76,7 @@ data class VacationDto(
     val status: String,
     val usedDays: Int,
     val totalDays: Int,
-    val documentType: String, // "PDF" or "WORD"
+    val documentType: String,
     val fileName: String
 )
 
@@ -84,6 +91,16 @@ data class CreateVacationRequest(
 data class ChangePasswordRequest(
     val currentPassword: String,
     val newPassword: String
+)
+
+@Serializable
+data class EmpleadoDto(
+    val cedula: String,
+    val nombreCompleto: String,
+    val cargo: String,
+    val servicio: String,
+    val tipoPersonal: String,
+    val fechaIngreso: String
 )
 
 @Serializable
@@ -103,6 +120,17 @@ fun main() {
 }
 
 fun Application.ivssServerModule() {
+    // Inicializar Base de Datos SQLite con Exposed ORM
+    try {
+        Database.connect("jdbc:sqlite:ivss_database.db", "org.sqlite.JDBC")
+        transaction {
+            SchemaUtils.create(EmpleadosTable)
+        }
+        println("Base de Datos SQLite inicializada correctamente")
+    } catch (e: Exception) {
+        println("Aviso al inicializar Base de Datos: ${e.message}")
+    }
+
     install(ContentNegotiation) {
         json(Json {
             prettyPrint = true
@@ -122,7 +150,7 @@ fun Application.ivssServerModule() {
         anyHost()
     }
 
-    // Datos persistentes en memoria del servidor IVSS
+    // Datos en memoria
     var currentUserProfile = UserProfileDto(
         id = "USR-100293",
         fullName = "Juan Carlos Pérez Rodríguez",
@@ -149,7 +177,45 @@ fun Application.ivssServerModule() {
     routing {
         // Health Check
         get("/api/health") {
-            call.respond(mapOf("status" to "OK", "service" to "IVSS Ktor Backend Server 1.0"))
+            call.respond(mapOf("status" to "OK", "service" to "IVSS Ktor Backend Server 2.0 (Exposed + Apache POI)"))
+        }
+
+        // Importación de Nómina Excel IVSS (.xlsx / .xls)
+        post("/api/import/excel") {
+            val multipart = call.receiveMultipart()
+            var insertados = 0
+            multipart.forEachPart { part ->
+                if (part is PartData.FileItem) {
+                    part.streamProvider().use { input ->
+                        insertados += ExcelImportService.importar(input)
+                    }
+                }
+                part.dispose()
+            }
+            call.respond(
+                ApiResponse(
+                    success = true,
+                    message = "Importación completada. Empleados insertados/actualizados: $insertados",
+                    data = mapOf("insertados" to insertados)
+                )
+            )
+        }
+
+        // Consulta de Empleados Importados
+        get("/api/employees") {
+            val lista = transaction {
+                EmpleadosTable.selectAll().map {
+                    EmpleadoDto(
+                        cedula = it[EmpleadosTable.cedula],
+                        nombreCompleto = "${it[EmpleadosTable.nombre1]} ${it[EmpleadosTable.apellido1]}",
+                        cargo = it[EmpleadosTable.nombreCargo],
+                        servicio = it[EmpleadosTable.descripcionUbi],
+                        tipoPersonal = it[EmpleadosTable.descripcionTE],
+                        fechaIngreso = it[EmpleadosTable.fechaIngreso].toString()
+                    )
+                }
+            }
+            call.respond(ApiResponse(success = true, message = "Empleados obtenidos", data = lista))
         }
 
         // Autenticación - Login

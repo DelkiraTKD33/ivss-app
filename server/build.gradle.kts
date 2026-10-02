@@ -16,8 +16,18 @@ dependencies {
     implementation(libs.ktor.serialization.kotlinx.json)
     implementation(libs.kotlinx.serialization.json)
 
-    // Librerías externas para lectura y creación de documentos Word (.docx) y PDF (.pdf)
+    // Exposed ORM & Database SQLite
+    implementation("org.jetbrains.exposed:exposed-core:0.48.0")
+    implementation("org.jetbrains.exposed:exposed-dao:0.48.0")
+    implementation("org.jetbrains.exposed:exposed-jdbc:0.48.0")
+    implementation("org.jetbrains.exposed:exposed-java-time:0.48.0")
+    implementation("org.xerial:sqlite-jdbc:3.45.1.0")
+
+    // Apache POI para procesamiento de archivos Excel (.xlsx / .xls) y Word (.docx)
+    implementation("org.apache.poi:poi:5.2.5")
     implementation("org.apache.poi:poi-ooxml:5.2.5")
+
+    // OpenPDF para generación de documentos PDF
     implementation("com.github.librepdf:openpdf:1.3.30")
 
     testImplementation(libs.kotlin.test)
