@@ -56,11 +56,9 @@ class VacationsViewModel(
 
     private val _vacations = mutableStateOf(
         listOf(
-            VacationItem(id = 1, name = "Vacaciones 2024", status = "Aprobada", usedDays = 15, totalDays = 15, documentType = DocumentType.PDF),
-            VacationItem(id = 2, name = "Vacaciones 2023", status = "Aprobada", usedDays = 15, totalDays = 15, documentType = DocumentType.WORD),
-            VacationItem(id = 3, name = "Vacaciones 2022", status = "Aprobada", usedDays = 15, totalDays = 15, documentType = DocumentType.PDF),
-            VacationItem(id = 4, name = "Vacaciones 2021", status = "Aprobada", usedDays = 15, totalDays = 15, documentType = DocumentType.EXCEL),
-            VacationItem(id = 5, name = "Adelanto Vacacional", status = "En espera", usedDays = 7, totalDays = 15, documentType = DocumentType.PDF)
+            VacationItem(id = 1, name = "Vacaciones Período 2024", status = "Aprobada", usedDays = 15, totalDays = 15, documentType = DocumentType.PDF),
+            VacationItem(id = 2, name = "Vacaciones Período 2023", status = "Aprobada", usedDays = 15, totalDays = 15, documentType = DocumentType.WORD),
+            VacationItem(id = 3, name = "Adelanto Vacacional 2025", status = "En espera", usedDays = 10, totalDays = 15, documentType = DocumentType.PDF)
         )
     )
     val vacations: State<List<VacationItem>> = _vacations

@@ -181,11 +181,9 @@ fun Application.ivssServerModule() {
     )
 
     val vacationsList = ConcurrentHashMap<Int, VacationDto>().apply {
-        put(1, VacationDto(1, "Vacaciones 2024", "Aprobada", 15, 15, "PDF", "Solicitud_Vacaciones_2024.pdf"))
-        put(2, VacationDto(2, "Vacaciones 2023", "Aprobada", 15, 15, "WORD", "Solicitud_Vacaciones_2023.docx"))
-        put(3, VacationDto(3, "Vacaciones 2022", "Aprobada", 15, 15, "PDF", "Solicitud_Vacaciones_2022.pdf"))
-        put(4, VacationDto(4, "Vacaciones 2021", "Aprobada", 15, 15, "WORD", "Solicitud_Vacaciones_2021.docx"))
-        put(5, VacationDto(5, "Adelanto Vacacional", "En espera", 7, 15, "PDF", "Solicitud_Adelanto_Vacacional.pdf"))
+        put(1, VacationDto(1, "Vacaciones Período 2024", "Aprobada", 15, 15, "PDF", "Forma_12-16_Vacaciones_2024.pdf"))
+        put(2, VacationDto(2, "Vacaciones Período 2023", "Aprobada", 15, 15, "WORD", "Forma_12-16_Vacaciones_2023.docx"))
+        put(3, VacationDto(3, "Adelanto Vacacional 2025", "En espera", 10, 15, "PDF", "Forma_12-16_Adelanto_2025.pdf"))
     }
 
     var currentPasswordHash = "12345678"
