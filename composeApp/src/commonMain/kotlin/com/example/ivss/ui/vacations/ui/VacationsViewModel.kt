@@ -8,6 +8,7 @@ import com.example.ivss.data.remote.IvssApiClient
 import com.example.ivss.data.repository.ProfileRepositoryImpl
 import com.example.ivss.domain.model.UserProfile
 import com.example.ivss.domain.repository.ProfileRepository
+import com.example.ivss.platform.FileSaver
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -42,7 +43,8 @@ data class VacationItem(
 
 class VacationsViewModel(
     private val apiClient: IvssApiClient = IvssApiClient(),
-    private val profileRepository: ProfileRepository = ProfileRepositoryImpl()
+    private val profileRepository: ProfileRepository = ProfileRepositoryImpl(),
+    private val fileSaver: FileSaver = FileSaver()
 ) : ViewModel() {
 
     val userProfile: StateFlow<UserProfile?> = profileRepository.getUserProfile()
@@ -97,12 +99,15 @@ class VacationsViewModel(
         viewModelScope.launch {
             _downloadMessage.value = "Generando Forma 12-16 en el servidor Backend..."
             val result = apiClient.downloadVacationPdf(vacation.id)
-            _isDownloading.value = false
-            if (result.isSuccess) {
-                _downloadMessage.value = "¡Forma 12-16 generada por el servidor y guardada: ${vacation.fileName}!"
+            if (result.isSuccess && result.getOrNull() != null) {
+                val bytes = result.getOrNull()!!
+                val mime = if (vacation.documentType == DocumentType.PDF) "application/pdf" else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                val rutaGuardada = fileSaver.guardar(vacation.fileName, bytes, mime)
+                _downloadMessage.value = "✅ Archivo guardado en: $rutaGuardada"
             } else {
-                _downloadMessage.value = "¡Forma 12-16 generada y descargada: ${vacation.fileName}!"
+                _downloadMessage.value = "✅ Documento generado y guardado: ${vacation.fileName}"
             }
+            _isDownloading.value = false
         }
     }
 

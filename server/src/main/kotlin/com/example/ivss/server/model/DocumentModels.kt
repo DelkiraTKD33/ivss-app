@@ -50,3 +50,16 @@ data class DatosConstancia(
     val coordinadorRRHH: String? = null,
     val maximaAutoridad: String? = null
 )
+
+@Serializable
+data class Documento(
+    val id: Int? = null,
+    val cedula: String,
+    val tipo: String,
+    val nombreArchivo: String,
+    val rutaArchivo: String,
+    val periodo: String? = null,
+    val generadoPor: String,
+    val fechaGeneracion: String,
+    val tamanio: Long
+)

@@ -1,5 +1,6 @@
 package com.example.ivss.server
 
+import com.example.ivss.server.db.DocumentosTable
 import com.example.ivss.server.db.EmpleadosTable
 import com.example.ivss.server.db.UsuariosTable
 import com.example.ivss.server.model.DatosConstancia
@@ -129,13 +130,13 @@ fun main() {
 }
 
 fun Application.ivssServerModule() {
-    // Inicializar Base de Datos SQLite con Exposed ORM y tablas de Empleados y Usuarios
+    // Inicializar Base de Datos SQLite con Exposed ORM y tablas de Empleados, Usuarios y Documentos
     try {
         Database.connect("jdbc:sqlite:ivss_database.db", "org.sqlite.JDBC")
         transaction {
-            SchemaUtils.create(EmpleadosTable, UsuariosTable)
+            SchemaUtils.create(EmpleadosTable, UsuariosTable, DocumentosTable)
         }
-        println("Base de Datos SQLite e índices de Seguridad inicializados")
+        println("Base de Datos SQLite, Usuarios y Sistema de Almacenamiento de Documentos inicializado")
     } catch (e: Exception) {
         println("Aviso al inicializar Base de Datos: ${e.message}")
     }
@@ -197,7 +198,7 @@ fun Application.ivssServerModule() {
 
         // Health Check
         get("/api/health") {
-            call.respond(mapOf("status" to "OK", "service" to "IVSS Ktor Backend Server 4.0 (PdfService + WordService + FormatoVacaciones)"))
+            call.respond(mapOf("status" to "OK", "service" to "IVSS Ktor Backend Server 5.0 (FileStorage + DocumentoRepository + Multiplatform FileSaver)"))
         }
 
         // Importación de Nómina Excel IVSS (.xlsx / .xls)
