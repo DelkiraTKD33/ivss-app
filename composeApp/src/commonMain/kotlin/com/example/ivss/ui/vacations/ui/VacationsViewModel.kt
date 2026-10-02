@@ -42,7 +42,7 @@ data class VacationItem(
 }
 
 class VacationsViewModel(
-    private val apiClient: IvssApiClient = IvssApiClient(),
+    val apiClient: IvssApiClient = IvssApiClient(),
     private val profileRepository: ProfileRepository = ProfileRepositoryImpl(),
     private val fileSaver: FileSaver = FileSaver()
 ) : ViewModel() {
@@ -91,6 +91,17 @@ class VacationsViewModel(
 
     fun onDismissDocumentPreview() {
         _selectedPreviewVacation.value = null
+    }
+
+    suspend fun getDocumentPreviewImage(vacation: VacationItem): Result<ByteArray> {
+        val user = userProfile.value
+        val userName = user?.fullName?.uppercase() ?: "JUAN CARLOS PÉREZ RODRÍGUEZ"
+        val userCedula = user?.nationalId ?: "V-18.765.432"
+        return apiClient.fetchPreviewImage(
+            cedula = userCedula,
+            nombre = userName,
+            periodo = vacation.name
+        )
     }
 
     fun downloadPdfDocument(vacation: VacationItem) {
