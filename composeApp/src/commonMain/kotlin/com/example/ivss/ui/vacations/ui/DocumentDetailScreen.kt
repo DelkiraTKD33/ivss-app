@@ -22,7 +22,6 @@ import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import com.example.ivss.domain.model.UserProfile
 import com.example.ivss.ui.components.BackButton
 import ivss.composeapp.generated.resources.Res
 import ivss.composeapp.generated.resources.ivss_logo
@@ -69,6 +68,7 @@ fun DocumentDetailContent(
                     BackButton(onClick = { navigator.pop() })
                 },
                 actions = {
+                    // ÚNICA Opción de Descargar en toda la pantalla
                     IconButton(
                         onClick = { viewModel.downloadPdfDocument(vacation) },
                         enabled = !isDownloading
@@ -123,47 +123,7 @@ fun DocumentDetailContent(
                 )
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { viewModel.downloadPdfDocument(vacation) },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            ) {
-                Canvas(modifier = Modifier.size(22.dp)) {
-                    val strokeWidth = 2.5.dp.toPx()
-                    val iconColor = Color.White
-                    drawLine(
-                        color = iconColor,
-                        start = Offset(size.width / 2, 0f),
-                        end = Offset(size.width / 2, size.height * 0.75f),
-                        strokeWidth = strokeWidth,
-                        cap = StrokeCap.Round
-                    )
-                    drawLine(
-                        color = iconColor,
-                        start = Offset(size.width * 0.2f, size.height * 0.48f),
-                        end = Offset(size.width / 2, size.height * 0.75f),
-                        strokeWidth = strokeWidth,
-                        cap = StrokeCap.Round
-                    )
-                    drawLine(
-                        color = iconColor,
-                        start = Offset(size.width * 0.8f, size.height * 0.48f),
-                        end = Offset(size.width / 2, size.height * 0.75f),
-                        strokeWidth = strokeWidth,
-                        cap = StrokeCap.Round
-                    )
-                    drawLine(
-                        color = iconColor,
-                        start = Offset(0f, size.height),
-                        end = Offset(size.width, size.height),
-                        strokeWidth = strokeWidth,
-                        cap = StrokeCap.Round
-                    )
-                }
-            }
-        }
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         Box(
             modifier = Modifier
@@ -460,39 +420,21 @@ fun DocumentDetailContent(
                     }
                 }
 
-                // Info del archivo y botón de descarga
+                // Info del archivo
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Nombre de archivo:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(vacation.fileName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                        }
-
-                        Button(
-                            onClick = { viewModel.downloadPdfDocument(vacation) },
-                            enabled = !isDownloading
-                        ) {
-                            if (isDownloading) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(18.dp),
-                                    color = Color.White,
-                                    strokeWidth = 2.dp
-                                )
-                            } else {
-                                Text("Descargar")
-                            }
-                        }
+                        Text("Nombre de archivo:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(vacation.fileName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                     }
                 }
 
