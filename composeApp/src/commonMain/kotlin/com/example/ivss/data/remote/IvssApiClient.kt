@@ -1,5 +1,6 @@
 package com.example.ivss.data.remote
 
+import com.example.ivss.getPlatform
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.plugins.contentnegotiation.*
@@ -56,8 +57,13 @@ data class ApiServerResponse<T>(val success: Boolean, val message: String, val d
 
 class IvssApiClient {
 
-    // URL base del servidor Ktor Backend
-    private val baseUrl = "http://10.0.2.2:8080/api"
+    // URL base según la plataforma (localhost en Web/Desktop, 10.0.2.2 en Android Emulator)
+    private val baseUrl: String
+        get() = if (getPlatform().name.contains("Android", ignoreCase = true)) {
+            "http://10.0.2.2:8080/api"
+        } else {
+            "http://localhost:8080/api"
+        }
 
     val client = HttpClient {
         install(ContentNegotiation) {

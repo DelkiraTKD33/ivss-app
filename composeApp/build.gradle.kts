@@ -32,17 +32,14 @@ kotlin {
         binaries.executable()
     }
 
-//    @OptIn(ExperimentalWasmDsl::class)
-//    wasmJs {
-//        browser()
-//        binaries.executable()
-//    }
-
     sourceSets {
         androidMain.dependencies {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.activity.compose)
             implementation(libs.ktor.client.cio)
+        }
+        jsMain.dependencies {
+            implementation("io.ktor:ktor-client-js:2.3.11")
         }
         commonMain.dependencies {
             val voyagerVersion = "1.1.0-beta02"
