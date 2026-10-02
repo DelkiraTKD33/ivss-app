@@ -1,6 +1,11 @@
 package com.example.ivss.server
 
 import com.example.ivss.server.db.EmpleadosTable
+import com.example.ivss.server.db.UsuariosTable
+import com.example.ivss.server.plugins.configureSecurity
+import com.example.ivss.server.plugins.seedSuperUsuario
+import com.example.ivss.server.routes.authRoutes
+import com.example.ivss.server.routes.protectedRoutes
 import com.example.ivss.server.services.ExcelImportService
 import io.ktor.http.*
 import io.ktor.http.content.*
@@ -120,16 +125,22 @@ fun main() {
 }
 
 fun Application.ivssServerModule() {
-    // Inicializar Base de Datos SQLite con Exposed ORM
+    // Inicializar Base de Datos SQLite con Exposed ORM y tablas de Empleados y Usuarios
     try {
         Database.connect("jdbc:sqlite:ivss_database.db", "org.sqlite.JDBC")
         transaction {
-            SchemaUtils.create(EmpleadosTable)
+            SchemaUtils.create(EmpleadosTable, UsuariosTable)
         }
-        println("Base de Datos SQLite inicializada correctamente")
+        println("Base de Datos SQLite e índices de Seguridad inicializados")
     } catch (e: Exception) {
         println("Aviso al inicializar Base de Datos: ${e.message}")
     }
+
+    // Configurar Seguridad JWT y Autenticación
+    configureSecurity()
+
+    // Inicializar Super Usuario por defecto
+    seedSuperUsuario()
 
     install(ContentNegotiation) {
         json(Json {
@@ -175,9 +186,13 @@ fun Application.ivssServerModule() {
     var currentPasswordHash = "12345678"
 
     routing {
+        // Rutas de Autenticación con JWT y Control de Roles
+        authRoutes()
+        protectedRoutes()
+
         // Health Check
         get("/api/health") {
-            call.respond(mapOf("status" to "OK", "service" to "IVSS Ktor Backend Server 2.0 (Exposed + Apache POI)"))
+            call.respond(mapOf("status" to "OK", "service" to "IVSS Ktor Backend Server 3.0 (JWT + BCrypt + Roles + Exposed)"))
         }
 
         // Importación de Nómina Excel IVSS (.xlsx / .xls)
@@ -218,7 +233,7 @@ fun Application.ivssServerModule() {
             call.respond(ApiResponse(success = true, message = "Empleados obtenidos", data = lista))
         }
 
-        // Autenticación - Login
+        // Autenticación Legacy/Directa
         post("/api/auth/login") {
             val req = call.receive<AuthRequest>()
             if (req.email.isNotBlank() && req.password == currentPasswordHash) {

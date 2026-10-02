@@ -16,6 +16,12 @@ dependencies {
     implementation(libs.ktor.serialization.kotlinx.json)
     implementation(libs.kotlinx.serialization.json)
 
+    // Ktor Security & JWT
+    implementation("io.ktor:ktor-server-auth:2.3.11")
+    implementation("io.ktor:ktor-server-auth-jwt:2.3.11")
+    implementation("com.auth0:java-jwt:4.4.0")
+    implementation("org.mindrot:jbcrypt:0.4")
+
     // Exposed ORM & Database SQLite
     implementation("org.jetbrains.exposed:exposed-core:0.48.0")
     implementation("org.jetbrains.exposed:exposed-dao:0.48.0")
