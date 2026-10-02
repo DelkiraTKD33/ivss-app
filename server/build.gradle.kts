@@ -36,5 +36,8 @@ dependencies {
     // OpenPDF para generación de documentos PDF
     implementation("com.github.librepdf:openpdf:1.3.30")
 
+    // PDFBox para renderizado de previsualización de documentos PDF a PNG
+    implementation("org.apache.pdfbox:pdfbox:3.0.3")
+
     testImplementation(libs.kotlin.test)
 }

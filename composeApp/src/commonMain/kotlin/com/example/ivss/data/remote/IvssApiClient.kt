@@ -106,6 +106,35 @@ class IvssApiClient {
         client.get("$baseUrl/vacations/$vacationId/pdf").body()
     }
 
+    suspend fun fetchPreviewImage(cedula: String, nombre: String, periodo: String): Result<ByteArray> = runCatching {
+        client.post("$baseUrl/constancia/preview-imagen") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                mapOf(
+                    "cedula" to cedula,
+                    "apellidosNombres" to nombre,
+                    "denominacionCargo" to "ANALISTA TÉCNICO I",
+                    "numeroCargo" to "00101",
+                    "fechaIngreso" to "2019-11-01",
+                    "codigoOrigenServicio" to "60209382 - 31",
+                    "unidadServicio" to "ADMINISTRACIÓN Y RRHH",
+                    "lugar" to "SAN JUAN DE LOS MORROS",
+                    "horario" to "ASISTENCIAL",
+                    "fechaDesde" to "2025-10-15",
+                    "fechaHasta" to "2025-11-17",
+                    "periodo" to periodo,
+                    "numeroDias" to 15,
+                    "fechaReintegro" to "2025-11-18",
+                    "observaciones" to "Solicitud aprobada y registrada en el sistema IVSS.",
+                    "nota" to "EL TRABAJADOR SOLICITÓ DICHAS VACACIONES CON EXPOSICIÓN DE MOTIVOS.",
+                    "supervisorInmediato" to "DR. WILLIAMS GONZALEZ",
+                    "coordinadorRRHH" to "LCDA. MAYARI SOJO",
+                    "maximaAutoridad" to "DR. JULIO AQUINO"
+                )
+            )
+        }.body()
+    }
+
     suspend fun changePassword(currentPassword: String, newPassword: String): Result<Unit> = runCatching {
         val response: ApiServerResponse<Unit> = client.put("$baseUrl/settings/password") {
             contentType(ContentType.Application.Json)

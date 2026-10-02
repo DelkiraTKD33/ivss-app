@@ -7,6 +7,7 @@ import com.example.ivss.server.plugins.cedulaActual
 import com.example.ivss.server.plugins.rolActual
 import com.example.ivss.server.plugins.usernameActual
 import com.example.ivss.server.services.FileStorageService
+import com.example.ivss.server.services.PdfPreviewService
 import com.example.ivss.server.services.PdfService
 import com.example.ivss.server.services.WordService
 import io.ktor.http.*
@@ -22,6 +23,20 @@ fun Route.constanciaRoutes() {
         post("/constancia/preview") {
             val datos = call.receive<DatosConstancia>()
             call.respond(datos)
+        }
+
+        post("/constancia/preview-imagen") {
+            val datos = call.receive<DatosConstancia>()
+            val pdf = PdfService.generarConstancia(datos)
+            val png = PdfPreviewService.pdfAPng(pdf, pagina = 0, dpi = 150)
+            call.respondBytes(png, ContentType.Image.PNG, HttpStatusCode.OK)
+        }
+
+        post("/constancia/thumbnail") {
+            val datos = call.receive<DatosConstancia>()
+            val pdf = PdfService.generarConstancia(datos)
+            val thumb = PdfPreviewService.generarThumbnail(pdf, anchoMaximo = 250)
+            call.respondBytes(thumb, ContentType.Image.PNG, HttpStatusCode.OK)
         }
 
         post("/constancia/pdf") {
