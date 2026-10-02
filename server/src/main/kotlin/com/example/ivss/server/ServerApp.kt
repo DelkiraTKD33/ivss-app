@@ -2,11 +2,15 @@ package com.example.ivss.server
 
 import com.example.ivss.server.db.EmpleadosTable
 import com.example.ivss.server.db.UsuariosTable
+import com.example.ivss.server.model.DatosConstancia
 import com.example.ivss.server.plugins.configureSecurity
 import com.example.ivss.server.plugins.seedSuperUsuario
 import com.example.ivss.server.routes.authRoutes
+import com.example.ivss.server.routes.constanciaRoutes
 import com.example.ivss.server.routes.protectedRoutes
 import com.example.ivss.server.services.ExcelImportService
+import com.example.ivss.server.services.PdfService
+import com.example.ivss.server.services.WordService
 import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.serialization.kotlinx.json.*
@@ -186,13 +190,14 @@ fun Application.ivssServerModule() {
     var currentPasswordHash = "12345678"
 
     routing {
-        // Rutas de Autenticación con JWT y Control de Roles
+        // Rutas de Autenticación con JWT, Control de Roles y Generación de Constancias
         authRoutes()
         protectedRoutes()
+        constanciaRoutes()
 
         // Health Check
         get("/api/health") {
-            call.respond(mapOf("status" to "OK", "service" to "IVSS Ktor Backend Server 3.0 (JWT + BCrypt + Roles + Exposed)"))
+            call.respond(mapOf("status" to "OK", "service" to "IVSS Ktor Backend Server 4.0 (PdfService + WordService + FormatoVacaciones)"))
         }
 
         // Importación de Nómina Excel IVSS (.xlsx / .xls)
@@ -347,12 +352,33 @@ fun Application.ivssServerModule() {
             )
         }
 
-        // Generador de Documento PDF en el Servidor Backend con OpenPDF
+        // Generador de Documento PDF en el Servidor Backend con PdfService
         get("/api/vacations/{id}/pdf") {
             val id = call.parameters["id"]?.toIntOrNull()
             val vacation = id?.let { vacationsList[it] }
             if (vacation != null) {
-                val pdfBytes = DocumentGenerator.generateOfficialPdf(currentUserProfile, vacation)
+                val datos = DatosConstancia(
+                    cedula = currentUserProfile.nationalId,
+                    apellidosNombres = currentUserProfile.fullName.uppercase(),
+                    denominacionCargo = "ANALISTA TÉCNICO I",
+                    numeroCargo = "00101",
+                    fechaIngreso = "2019-11-01",
+                    codigoOrigenServicio = "60209382 - 31",
+                    unidadServicio = "ADMINISTRACIÓN Y RRHH",
+                    lugar = "SAN JUAN DE LOS MORROS",
+                    horario = "ASISTENCIAL",
+                    fechaDesde = "2025-10-15",
+                    fechaHasta = "2025-11-17",
+                    periodo = "2023-2024",
+                    numeroDias = vacation.usedDays,
+                    fechaReintegro = "2025-11-18",
+                    observaciones = "Solicitud aprobada y registrada en el sistema IVSS.",
+                    nota = "EL TRABAJADOR SOLICITÓ DICHAS VACACIONES (${vacation.name.uppercase()}) CORRESPONDIENTES AL PERIODO 2023-2024 CON EXPOSICIÓN DE MOTIVO.",
+                    supervisorInmediato = "DR. WILLIAMS GONZALEZ",
+                    coordinadorRRHH = "LCDA. MAYARI SOJO",
+                    maximaAutoridad = "DR. JULIO AQUINO"
+                )
+                val pdfBytes = PdfService.generarConstancia(datos)
                 call.response.header(
                     HttpHeaders.ContentDisposition,
                     ContentDisposition.Attachment.withParameter(ContentDisposition.Parameters.FileName, vacation.fileName).toString()
@@ -363,16 +389,33 @@ fun Application.ivssServerModule() {
             }
         }
 
-        // Generador de Documento Word (.docx) con Apache POI desde la plantilla JENNIFER HERNANDEZ.docx
+        // Generador de Documento Word (.docx) con WordService
         get("/api/vacations/{id}/docx") {
             val id = call.parameters["id"]?.toIntOrNull()
             val vacation = id?.let { vacationsList[it] }
             if (vacation != null) {
-                val docxBytes = DocumentGenerator.generateDocxFromTemplate(
-                    "C:\\Users\\Delkira\\Downloads\\JENNIFER HERNANDEZ.docx",
-                    currentUserProfile,
-                    vacation
+                val datos = DatosConstancia(
+                    cedula = currentUserProfile.nationalId,
+                    apellidosNombres = currentUserProfile.fullName.uppercase(),
+                    denominacionCargo = "ANALISTA TÉCNICO I",
+                    numeroCargo = "00101",
+                    fechaIngreso = "2019-11-01",
+                    codigoOrigenServicio = "60209382 - 31",
+                    unidadServicio = "ADMINISTRACIÓN Y RRHH",
+                    lugar = "SAN JUAN DE LOS MORROS",
+                    horario = "ASISTENCIAL",
+                    fechaDesde = "2025-10-15",
+                    fechaHasta = "2025-11-17",
+                    periodo = "2023-2024",
+                    numeroDias = vacation.usedDays,
+                    fechaReintegro = "2025-11-18",
+                    observaciones = "Solicitud aprobada y registrada en el sistema IVSS.",
+                    nota = "EL TRABAJADOR SOLICITÓ DICHAS VACACIONES (${vacation.name.uppercase()}) CORRESPONDIENTES AL PERIODO 2023-2024 CON EXPOSICIÓN DE MOTIVO.",
+                    supervisorInmediato = "DR. WILLIAMS GONZALEZ",
+                    coordinadorRRHH = "LCDA. MAYARI SOJO",
+                    maximaAutoridad = "DR. JULIO AQUINO"
                 )
+                val docxBytes = WordService.generarConstancia(datos)
                 call.response.header(
                     HttpHeaders.ContentDisposition,
                     ContentDisposition.Attachment.withParameter(ContentDisposition.Parameters.FileName, vacation.fileName).toString()
