@@ -39,5 +39,8 @@ dependencies {
     // PDFBox para renderizado de previsualización de documentos PDF a PNG
     implementation("org.apache.pdfbox:pdfbox:3.0.3")
 
+    // XDocReport / POI PDF Converter para convertir .docx directamente a .pdf
+    implementation("fr.opensagres.xdocreport:fr.opensagres.poi.xwpf.converter.pdf:2.0.4")
+
     testImplementation(libs.kotlin.test)
 }

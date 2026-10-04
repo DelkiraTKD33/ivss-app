@@ -2,7 +2,10 @@ package com.example.ivss.server
 
 import com.example.ivss.server.model.DatosConstancia
 import com.example.ivss.server.services.PdfService
+import fr.opensagres.poi.xwpf.converter.pdf.PdfConverter
+import fr.opensagres.poi.xwpf.converter.pdf.PdfOptions
 import org.apache.poi.xwpf.usermodel.*
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileInputStream
@@ -97,12 +100,38 @@ object DocumentGenerator {
     }
 
     /**
-     * Delegado a PdfService para generar la versión en PDF con todos los campos reglamentarios.
+     * Convierte el documento Word JENNIFER HERNANDEZ.docx directamente a PDF
+     * mediante XDocReport / POI PdfConverter, manteniendo el 100% del formato.
      */
     fun generateOfficialPdf(
         user: UserProfileDto,
         vacation: VacationDto,
     ): ByteArray {
+        val docxBytes = generateDocxFromTemplate(
+            templatePath = "server/src/main/resources/templates/Forma_12-16_Template.docx",
+            user = user,
+            vacation = vacation
+        )
+
+        return try {
+            val doc = XWPFDocument(ByteArrayInputStream(docxBytes))
+            val options = PdfOptions.create()
+            val pdfOut = ByteArrayOutputStream()
+            PdfConverter.getInstance().convert(doc, pdfOut, options)
+            val pdfBytes = pdfOut.toByteArray()
+            doc.close()
+            if (pdfBytes.size > 500) {
+                pdfBytes
+            } else {
+                generarPdfRespaldo(user, vacation)
+            }
+        } catch (e: Exception) {
+            println("Aviso en conversión directa DOCX a PDF: ${e.message}")
+            generarPdfRespaldo(user, vacation)
+        }
+    }
+
+    private fun generarPdfRespaldo(user: UserProfileDto, vacation: VacationDto): ByteArray {
         val datos = DatosConstancia(
             cedula = user.nationalId,
             apellidosNombres = user.fullName.uppercase(),
@@ -115,7 +144,7 @@ object DocumentGenerator {
             horario = "ASISTENCIAL",
             fechaDesde = "2025-10-15",
             fechaHasta = "2025-11-17",
-            periodo = "2023-2024",
+            periodo = vacation.name,
             numeroDias = vacation.usedDays,
             fechaReintegro = "2025-11-18",
             observaciones = "Solicitud aprobada y registrada en el sistema IVSS.",

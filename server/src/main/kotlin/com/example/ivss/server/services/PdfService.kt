@@ -7,15 +7,10 @@ import com.lowagie.text.pdf.PdfPTable
 import com.lowagie.text.pdf.PdfWriter
 import java.awt.Color
 import java.io.ByteArrayOutputStream
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 
 object PdfService {
 
-    private val FECHA_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy")
-    private val FECHA_DOC_FMT = DateTimeFormatter.ofPattern("ddMMyyyy")
-
-    private val FONT_MINI = FontFactory.getFont(FontFactory.HELVETICA, 6f, Font.NORMAL, Color.BLACK)
+    private val FONT_MINI = FontFactory.getFont(FontFactory.HELVETICA, 6.5f, Font.NORMAL, Color.BLACK)
     private val FONT_TITULO = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 7.5f, Font.BOLD, Color.BLACK)
     private val FONT_VALOR = FontFactory.getFont(FontFactory.HELVETICA, 8.5f, Font.NORMAL, Color.BLACK)
     private val FONT_VALOR_BOLD = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9.5f, Font.BOLD, Color.BLACK)
@@ -26,7 +21,7 @@ object PdfService {
     fun generarConstancia(datos: DatosConstancia): ByteArray {
         val out = ByteArrayOutputStream()
 
-        Document(PageSize.LETTER, 25f, 25f, 25f, 25f).use { doc ->
+        Document(PageSize.LETTER, 20f, 20f, 20f, 20f).use { doc ->
             val writer = PdfWriter.getInstance(doc, out)
             doc.open()
 
@@ -113,14 +108,14 @@ object PdfService {
 
             doc.add(Paragraph(" ", FONT_MINI))
 
-            // 4. TABLA PRINCIPAL DE DATOS DEL TRABAJADOR
+            // 4. TABLA PRINCIPAL DE DATOS DEL TRABAJADOR O TRABAJADORA
             val workerTable = PdfPTable(5).apply {
                 widthPercentage = 100f
-                setWidths(floatArrayOf(4f, 32f, 22f, 22f, 20f))
+                setWidths(floatArrayOf(5f, 33f, 21f, 21f, 20f))
             }
 
             // Celda vertical izquierda
-            val verticalCell = PdfPCell(Phrase(FormatoVacaciones.TITULO_APELLIDOS, FONT_MINI)).apply {
+            val verticalCell = PdfPCell(Phrase("DATOS DEL TRABAJADOR O TRABAJADORA", FONT_MINI)).apply {
                 rotation = 270
                 backgroundColor = Color(230, 230, 230)
                 horizontalAlignment = Element.ALIGN_CENTER
@@ -129,17 +124,17 @@ object PdfService {
             }
             workerTable.addCell(verticalCell)
 
-            // Fila 1
+            // Fila 1: Apellidos y Cédula
             workerTable.addCell(celdaLabelValor(FormatoVacaciones.TITULO_APELLIDOS, datos.apellidosNombres, colSpan = 2, boldVal = true))
             workerTable.addCell(celdaLabelValor(FormatoVacaciones.TITULO_CEDULA, datos.cedula, colSpan = 2, boldVal = true))
 
-            // Fila 2
+            // Fila 2: Cargo, N°, Fecha Ingreso, Cod Origen
             workerTable.addCell(celdaLabelValor(FormatoVacaciones.TITULO_DENOMINACION, datos.denominacionCargo, colSpan = 1))
             workerTable.addCell(celdaLabelValor(FormatoVacaciones.TITULO_NUMERO_CARGO, datos.numeroCargo, colSpan = 1))
             workerTable.addCell(celdaLabelValor(FormatoVacaciones.TITULO_FECHA_INGRESO, "01 / 11 / 2019", colSpan = 1))
             workerTable.addCell(celdaLabelValor(FormatoVacaciones.TITULO_COD_ORIGEN, datos.codigoOrigenServicio, colSpan = 1))
 
-            // Fila 3
+            // Fila 3: Unidad, Lugar, Horario, Días Semana
             workerTable.addCell(celdaLabelValor(FormatoVacaciones.TITULO_UNIDAD, datos.unidadServicio, colSpan = 1))
             workerTable.addCell(celdaLabelValor(FormatoVacaciones.TITULO_LUGAR, datos.lugar, colSpan = 1))
             workerTable.addCell(celdaLabelValor(FormatoVacaciones.TITULO_HORARIO, datos.horario, colSpan = 1))
@@ -171,7 +166,7 @@ object PdfService {
             // Fila 5: Periodo y Reintegro
             workerTable.addCell(celdaLabelValor(FormatoVacaciones.TITULO_PERIODO, datos.periodo, colSpan = 1))
             workerTable.addCell(celdaLabelValor(FormatoVacaciones.TITULO_DIAS, "${datos.numeroDias} DÍAS", colSpan = 1, boldVal = true))
-            
+
             val pReintegro = Paragraph().apply {
                 alignment = Element.ALIGN_CENTER
                 add(Chunk("HÁBILES, DEBERÁ REINTEGRARSE EL DÍA:\n", FONT_TITULO))
@@ -193,7 +188,7 @@ object PdfService {
             val pObs = Paragraph().apply {
                 add(Chunk("OBSERVACIONES:\n", FONT_VALOR_BOLD))
                 add(Chunk("NOTA:\n", FONT_VALOR_BOLD))
-                add(Chunk("EL TRABAJADOR SOLICITÓ DICHAS VACACIONES CON EXPOSICIÓN DE MOTIVOS CORRESPONDIENTES AL PERIODO ${datos.periodo}.", FONT_VALOR))
+                add(Chunk("EL TRABAJADOR SOLICITO DICHO VACACIONES CON EXPOSICION DE MOTIVO. CORRESPONDIENTES AL PERIODO ${datos.periodo}.", FONT_VALOR))
             }
             val obsCell = PdfPCell(pObs).apply { setPadding(6f) }
             obsTable.addCell(obsCell)
@@ -227,7 +222,7 @@ object PdfService {
     }
 
     private fun validarPdf(bytes: ByteArray) {
-        require(bytes.size > 500) { "PDF demasiado pequeño (${bytes.size} bytes)." }
+        require(bytes.size > 500) { "PDF generado incompleto (${bytes.size} bytes)." }
         val header = String(bytes, 0, 5, Charsets.ISO_8859_1)
         require(header == "%PDF-") { "Cabecera PDF no válida: '$header'" }
     }
