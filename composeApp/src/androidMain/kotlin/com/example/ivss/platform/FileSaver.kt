@@ -15,16 +15,29 @@ actual class FileSaver {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, nombreArchivo)
                 put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
                 put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/ivss")
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
             }
             val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
                 ?: error("No se pudo crear el archivo mediante MediaStore")
-            context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
-            uri.toString()
+
+            context.contentResolver.openOutputStream(uri)?.use { stream ->
+                stream.write(bytes)
+                stream.flush()
+            } ?: error("No se pudo abrir el stream de salida")
+
+            values.clear()
+            values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+            context.contentResolver.update(uri, values, null, null)
+
+            "Descargas/ivss/$nombreArchivo"
         } else {
             val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "ivss")
             if (!dir.exists()) dir.mkdirs()
             val file = File(dir, nombreArchivo)
-            file.writeBytes(bytes)
+            file.outputStream().use { stream ->
+                stream.write(bytes)
+                stream.flush()
+            }
             file.absolutePath
         }
     }

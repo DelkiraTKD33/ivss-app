@@ -1,8 +1,10 @@
 package com.example.ivss.ui.vacations.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,8 +20,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -28,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.example.ivss.platform.toImageBitmap
 import com.example.ivss.ui.components.BackButton
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -77,11 +82,9 @@ fun VacationsContent(viewModel: VacationsViewModel) {
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
-                // Cruz sola en el FAB
                 Canvas(modifier = Modifier.size(20.dp)) {
                     val strokeWidth = 2.5.dp.toPx()
                     val iconColor = Color.White
-                    // Línea horizontal
                     drawLine(
                         color = iconColor,
                         start = Offset(0f, size.height / 2),
@@ -89,7 +92,6 @@ fun VacationsContent(viewModel: VacationsViewModel) {
                         strokeWidth = strokeWidth,
                         cap = StrokeCap.Round
                     )
-                    // Línea vertical
                     drawLine(
                         color = iconColor,
                         start = Offset(size.width / 2, 0f),
@@ -130,6 +132,7 @@ fun VacationsContent(viewModel: VacationsViewModel) {
                     ) { vacation ->
                         VacationCard(
                             vacation = vacation,
+                            viewModel = viewModel,
                             onCardClick = { navigator.push(DocumentDetailScreen(vacation = vacation)) },
                             onDownloadClick = { viewModel.downloadPdfDocument(vacation) }
                         )
@@ -242,6 +245,7 @@ fun AddVacationDialog(
 @Composable
 fun VacationCard(
     vacation: VacationItem,
+    viewModel: VacationsViewModel,
     onCardClick: () -> Unit = {},
     onDownloadClick: () -> Unit = {}
 ) {
@@ -270,7 +274,6 @@ fun VacationCard(
                 )
                 .padding(12.dp)
         ) {
-            // Fondo decorativo sutil con efecto de cuadritos al borde derecho
             Canvas(modifier = Modifier.matchParentSize()) {
                 val pixelSize = 6.dp.toPx()
                 val pixelAlpha = 0.08f
@@ -301,10 +304,10 @@ fun VacationCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // 1. Vista previa dinámica del archivo con contenido de tabla y esquina doblada
-                DocumentPreviewThumbnail(vacation = vacation)
+                // Vista previa real del documento creado
+                DocumentPreviewThumbnail(vacation = vacation, viewModel = viewModel)
 
-                // 2. Columna de Contenido (Nombre, Nombre de archivo y Estado)
+                // Columna de Contenido (Nombre, Nombre de archivo y Estado)
                 Column(
                     modifier = Modifier
                         .weight(1f)
@@ -369,7 +372,6 @@ fun VacationCard(
                         Canvas(modifier = Modifier.size(16.dp)) {
                             val strokeWidth = 2.dp.toPx()
                             val iconColor = Color.White
-                            // Flecha hacia abajo
                             drawLine(
                                 color = iconColor,
                                 start = Offset(size.width / 2, 0f),
@@ -391,7 +393,6 @@ fun VacationCard(
                                 strokeWidth = strokeWidth,
                                 cap = StrokeCap.Round
                             )
-                            // Barra de piso
                             drawLine(
                                 color = iconColor,
                                 start = Offset(0f, size.height),
@@ -410,6 +411,7 @@ fun VacationCard(
 @Composable
 fun DocumentPreviewThumbnail(
     vacation: VacationItem,
+    viewModel: VacationsViewModel,
     modifier: Modifier = Modifier
 ) {
     val docType = vacation.documentType
@@ -426,6 +428,19 @@ fun DocumentPreviewThumbnail(
     }
 
     val titleText = vacation.name.uppercase()
+    val userProfile by viewModel.userProfile.collectAsState()
+    var previewBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+
+    LaunchedEffect(vacation.id, userProfile) {
+        val result = viewModel.getDocumentPreviewImage(vacation)
+        if (result.isSuccess && result.getOrNull() != null) {
+            try {
+                previewBitmap = result.getOrNull()!!.toImageBitmap()
+            } catch (e: Exception) {
+                previewBitmap = null
+            }
+        }
+    }
 
     Surface(
         modifier = modifier
@@ -437,83 +452,56 @@ fun DocumentPreviewThumbnail(
         shadowElevation = 2.dp
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // 1. Área Superior: Vista Previa de la Rejilla / Contenido de Tabla
+            // 1. Área Superior: Muestra la Imagen Real del Documento
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .background(Color.White)
+                    .background(Color.White),
+                contentAlignment = Alignment.Center
             ) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    // Encabezado del documento
-                    Box(
+                if (previewBitmap != null) {
+                    Image(
+                        bitmap = previewBitmap!!,
+                        contentDescription = vacation.name,
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(12.dp)
-                            .background(accentColor),
-                        contentAlignment = Alignment.Center
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(3.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
-                        Text(
-                            text = "FORMA 12-16",
-                            color = Color.White,
-                            fontSize = 7.5.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    }
-
-                    // Rejilla/Líneas de celdas dibujadas con Canvas
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        val rowCount = 6
-                        val colCount = 5
-                        val rowHeight = size.height / rowCount
-                        val colWidth = size.width / colCount
-                        val gridColor = Color(0xFFE0E0E0)
-
-                        for (i in 1..rowCount) {
-                            drawLine(
-                                color = gridColor,
-                                start = Offset(0f, i * rowHeight),
-                                end = Offset(size.width, i * rowHeight),
-                                strokeWidth = 1f
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(10.dp)
+                                .background(Color.Black),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "FORMA 12-16",
+                                color = Color.White,
+                                fontSize = 5.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
 
-                        for (j in 1..colCount) {
-                            drawLine(
-                                color = gridColor,
-                                start = Offset(j * colWidth, 0f),
-                                end = Offset(j * colWidth, size.height),
-                                strokeWidth = 1f
-                            )
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(0.5.dp, Color.Black)
+                                .padding(2.dp),
+                            verticalArrangement = Arrangement.spacedBy(1.dp)
+                        ) {
+                            Box(modifier = Modifier.fillMaxWidth(0.9f).height(2.dp).background(Color.DarkGray))
+                            Box(modifier = Modifier.fillMaxWidth(0.7f).height(2.dp).background(Color.Gray))
+                            Box(modifier = Modifier.fillMaxWidth(0.85f).height(2.dp).background(accentColor))
                         }
-
-                        // Celdas simuladas con datos
-                        val cellDataColor = Color(0xFF78909C)
-                        drawRect(
-                            color = cellDataColor,
-                            topLeft = Offset(colWidth * 0.1f, rowHeight * 0.2f),
-                            size = Size(colWidth * 0.8f, rowHeight * 0.6f)
-                        )
-                        drawRect(
-                            color = cellDataColor,
-                            topLeft = Offset(colWidth * 1.1f, rowHeight * 1.2f),
-                            size = Size(colWidth * 0.8f, rowHeight * 0.6f)
-                        )
-                        drawRect(
-                            color = cellDataColor,
-                            topLeft = Offset(colWidth * 2.1f, rowHeight * 2.2f),
-                            size = Size(colWidth * 0.8f, rowHeight * 0.6f)
-                        )
-                        drawRect(
-                            color = cellDataColor,
-                            topLeft = Offset(colWidth * 3.1f, rowHeight * 3.2f),
-                            size = Size(colWidth * 0.8f, rowHeight * 0.6f)
-                        )
-                        drawRect(
-                            color = cellDataColor,
-                            topLeft = Offset(colWidth * 0.1f, rowHeight * 4.2f),
-                            size = Size(colWidth * 0.8f, rowHeight * 0.6f)
-                        )
                     }
                 }
             }
@@ -524,7 +512,7 @@ fun DocumentPreviewThumbnail(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(26.dp)
+                    .height(24.dp)
                     .background(Color.White)
             ) {
                 Row(
@@ -534,9 +522,8 @@ fun DocumentPreviewThumbnail(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    // Badge del tipo de archivo (Icono verde X / PDF / DOCX)
                     Surface(
-                        modifier = Modifier.size(16.dp),
+                        modifier = Modifier.size(15.dp),
                         shape = RoundedCornerShape(3.dp),
                         color = accentColor
                     ) {
@@ -544,18 +531,17 @@ fun DocumentPreviewThumbnail(
                             Text(
                                 text = badgeLabel,
                                 color = Color.White,
-                                fontSize = 8.sp,
+                                fontSize = 7.5.sp,
                                 fontWeight = FontWeight.ExtraBold
                             )
                         }
                     }
 
-                    // Título correspondiente del documento
                     Text(
                         text = titleText,
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
-                            fontSize = 8.5.sp,
+                            fontSize = 8.sp,
                             color = Color(0xFF37474F)
                         ),
                         maxLines = 1,
@@ -563,13 +549,12 @@ fun DocumentPreviewThumbnail(
                     )
                 }
 
-                // 3. Esquina Doblada en la parte inferior derecha (Dog-Ear Fold)
+                // Esquina Doblada
                 Canvas(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .size(16.dp)
+                        .size(14.dp)
                 ) {
-                    // Sombra interior doblada
                     val shadowFold = Path().apply {
                         moveTo(0f, size.height)
                         lineTo(size.width, 0f)
@@ -581,7 +566,6 @@ fun DocumentPreviewThumbnail(
                         color = Color(0xFFB0BEC5)
                     )
 
-                    // Triángulo exterior del doblez (Verde/Rojo/Azul)
                     val accentFold = Path().apply {
                         moveTo(size.width * 0.25f, size.height)
                         lineTo(size.width, size.height * 0.25f)
