@@ -9,6 +9,7 @@ import com.example.ivss.data.repository.ProfileRepositoryImpl
 import com.example.ivss.domain.model.UserProfile
 import com.example.ivss.domain.repository.ProfileRepository
 import com.example.ivss.platform.FileSaver
+import com.example.ivss.platform.NativeDocxGenerator
 import com.example.ivss.platform.NativePdfGenerator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -32,7 +33,7 @@ data class VacationItem(
     val status: String,
     val usedDays: Int,
     val totalDays: Int,
-    val documentType: DocumentType = DocumentType.PDF,
+    val documentType: DocumentType = DocumentType.WORD,
     val fileName: String = "Forma_12-16_${name.replace(" ", "_")}.${
         when (documentType) {
             DocumentType.PDF -> "pdf"
@@ -60,9 +61,9 @@ class VacationsViewModel(
 
     private val _vacations = mutableStateOf(
         listOf(
-            VacationItem(id = 1, name = "Vacaciones Período 2024", status = "Aprobada", usedDays = 15, totalDays = 15, documentType = DocumentType.PDF),
+            VacationItem(id = 1, name = "Vacaciones Período 2024", status = "Aprobada", usedDays = 15, totalDays = 15, documentType = DocumentType.WORD),
             VacationItem(id = 2, name = "Vacaciones Período 2023", status = "Aprobada", usedDays = 15, totalDays = 15, documentType = DocumentType.WORD),
-            VacationItem(id = 3, name = "Adelanto Vacacional 2025", status = "En espera", usedDays = 10, totalDays = 15, documentType = DocumentType.PDF)
+            VacationItem(id = 3, name = "Adelanto Vacacional 2025", status = "En espera", usedDays = 10, totalDays = 15, documentType = DocumentType.WORD)
         )
     )
     val vacations: State<List<VacationItem>> = _vacations
@@ -110,15 +111,31 @@ class VacationsViewModel(
         if (_isDownloading.value) return
         _isDownloading.value = true
         viewModelScope.launch {
-            _downloadMessage.value = "Generando Forma 12-16..."
-            val result = apiClient.downloadVacationPdf(vacation.id)
+            val isDocx = vacation.documentType == DocumentType.WORD || vacation.fileName.endsWith(".docx")
+            _downloadMessage.value = if (isDocx) "Generando Forma 12-16 Word (.docx)..." else "Generando Forma 12-16 PDF..."
+
+            val result = if (isDocx) {
+                apiClient.downloadVacationDocx(vacation.id)
+            } else {
+                apiClient.downloadVacationPdf(vacation.id)
+            }
+
             val bytesToSave: ByteArray = if (result.isSuccess && result.getOrNull() != null && result.getOrNull()!!.isNotEmpty()) {
                 result.getOrNull()!!
             } else {
-                generarBytesDocumentoLocal(vacation)
+                if (isDocx) {
+                    generarBytesWordLocal(vacation)
+                } else {
+                    generarBytesDocumentoLocal(vacation)
+                }
             }
 
-            val mime = if (vacation.documentType == DocumentType.PDF) "application/pdf" else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            val mime = if (isDocx) {
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            } else {
+                "application/pdf"
+            }
+
             try {
                 val rutaGuardada = fileSaver.guardar(vacation.fileName, bytesToSave, mime)
                 _downloadMessage.value = "✅ Guardado en el dispositivo: $rutaGuardada"
@@ -127,6 +144,21 @@ class VacationsViewModel(
             }
             _isDownloading.value = false
         }
+    }
+
+    private fun generarBytesWordLocal(vacation: VacationItem): ByteArray {
+        val user = userProfile.value
+        val userName = user?.fullName?.uppercase() ?: "JUAN CARLOS PÉREZ RODRÍGUEZ"
+        val userCedula = user?.nationalId ?: "V-18.765.432"
+        val userEmployer = user?.employer?.uppercase() ?: "HOSPITAL GENERAL MUNICIPAL IVSS SAN JUAN DE LOS MORROS"
+
+        return NativeDocxGenerator.generateForma1216Docx(
+            userName = userName,
+            userNationalId = userCedula,
+            employerName = userEmployer,
+            vacationName = vacation.name,
+            usedDays = vacation.usedDays
+        )
     }
 
     private fun generarBytesDocumentoLocal(vacation: VacationItem): ByteArray {
@@ -157,7 +189,7 @@ class VacationsViewModel(
             status = "En espera",
             usedDays = 0,
             totalDays = if (totalDays > 0) totalDays else 15,
-            documentType = docType
+            documentType = DocumentType.WORD
         )
         _vacations.value += newItem
         _showAddDialog.value = false

@@ -112,6 +112,10 @@ class IvssApiClient {
         client.get("$baseUrl/vacations/$vacationId/pdf").body()
     }
 
+    suspend fun downloadVacationDocx(vacationId: Int): Result<ByteArray> = runCatching {
+        client.get("$baseUrl/vacations/$vacationId/docx").body()
+    }
+
     suspend fun fetchPreviewImage(cedula: String, nombre: String, periodo: String): Result<ByteArray> = runCatching {
         client.post("$baseUrl/constancia/preview-imagen") {
             contentType(ContentType.Application.Json)

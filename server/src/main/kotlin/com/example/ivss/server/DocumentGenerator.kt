@@ -15,8 +15,8 @@ object DocumentGenerator {
 
     /**
      * Utiliza la plantilla exacta JENNIFER HERNANDEZ.docx (Forma_12-16_Template.docx)
-     * reemplazando de forma quirúrgica los campos con los datos del usuario activo,
-     * conservando el 100% de la tipografía, diseño, tablas, imágenes y bordes originales.
+     * modificando el texto de los runs existentes in-place sin alterar ni eliminar la estructura
+     * del XML de Microsoft Word, garantizando un archivo .docx 100% válido y libre de corrupción.
      */
     fun generateDocxFromTemplate(
         templatePath: String = "server/src/main/resources/templates/Forma_12-16_Template.docx",
@@ -35,32 +35,14 @@ object DocumentGenerator {
 
         val doc = XWPFDocument(inputStream)
 
-        val userName = user.fullName.uppercase()
-        val nationalId = user.nationalId
-        val employerName = user.employer.uppercase()
-        val vacationPeriod = vacation.name.uppercase()
-        val vacationDays = vacation.usedDays.toString()
-
-        val replacements = mapOf(
-            "HERNANDEZ RON JENNIFFER" to userName,
-            "17.062.973" to nationalId,
-            "HOSPITAL GENERAL MUNICIPAL IVSS SAN JUAN DE LOS MORROS" to employerName,
-            "2023-2024" to vacationPeriod,
-            "24" to vacationDays
-        )
-
+        // Procesar párrafos del cuerpo principal
         for (paragraph in doc.paragraphs) {
-            replaceInParagraph(paragraph, replacements)
+            replaceInParagraph(paragraph, user, vacation)
         }
 
+        // Procesar tablas principales y tablas anidadas
         for (table in doc.tables) {
-            for (row in table.rows) {
-                for (cell in row.tableCells) {
-                    for (paragraph in cell.paragraphs) {
-                        replaceInParagraph(paragraph, replacements)
-                    }
-                }
-            }
+            processTable(table, user, vacation)
         }
 
         val out = ByteArrayOutputStream()
@@ -70,32 +52,62 @@ object DocumentGenerator {
         return out.toByteArray()
     }
 
-    private fun replaceInParagraph(paragraph: XWPFParagraph, replacements: Map<String, String>) {
-        val fullText = paragraph.text
-        var hasChanges = false
-        var updatedText = fullText
-
-        replacements.forEach { (target, replacement) ->
-            if (updatedText.contains(target)) {
-                updatedText = updatedText.replace(target, replacement)
-                hasChanges = true
+    private fun processTable(table: XWPFTable, user: UserProfileDto, vacation: VacationDto) {
+        for (row in table.rows) {
+            for (cell in row.tableCells) {
+                if (cell.paragraphs.isEmpty()) {
+                    cell.addParagraph()
+                }
+                for (paragraph in cell.paragraphs) {
+                    replaceInParagraph(paragraph, user, vacation)
+                }
+                for (nestedTable in cell.tables) {
+                    processTable(nestedTable, user, vacation)
+                }
             }
         }
+    }
 
-        if (hasChanges && paragraph.runs.isNotEmpty()) {
-            val firstRun = paragraph.runs.first()
-            val fontFamily = firstRun.fontFamily ?: "Arial"
-            val fontSize = if (firstRun.fontSize > 0) firstRun.fontSize else 9
-            val isBold = firstRun.isBold
+    private fun replaceInParagraph(paragraph: XWPFParagraph, user: UserProfileDto, vacation: VacationDto) {
+        val userName = user.fullName.uppercase()
+        val nationalId = user.nationalId
+        val employerName = user.employer.uppercase()
+        val vacationDays = vacation.usedDays.toString()
+        val vacationPeriod = vacation.name.uppercase()
 
-            while (paragraph.runs.size > 1) {
-                paragraph.removeRun(1)
+        val runs = paragraph.runs
+        if (runs.isEmpty()) return
+
+        for (i in 0 until runs.size) {
+            val run = runs[i]
+            val text = run.getText(0) ?: continue
+
+            when {
+                text.contains("HERNANDEZ RON JENNIFFE") -> {
+                    run.setText(text.replace("HERNANDEZ RON JENNIFFE", userName), 0)
+                }
+                text == "R" && i > 0 && (runs[i - 1].getText(0)?.contains(userName) == true || runs[i - 1].getText(0)?.contains("HERNANDEZ") == true) -> {
+                    run.setText("", 0)
+                }
+                text == "17" -> {
+                    run.setText(nationalId.replace("V-", "").replace("v-", "").trim(), 0)
+                }
+                text == "062" || text == "973" -> {
+                    run.setText("", 0)
+                }
+                text.contains("HOSPITAL GENERAL MUNICIPAL IVSS SAN JUAN DE LOS M") -> {
+                    run.setText(text.replace("HOSPITAL GENERAL MUNICIPAL IVSS SAN JUAN DE LOS M", employerName), 0)
+                }
+                text == "ORROS." && i > 0 && runs[i - 1].getText(0)?.contains(employerName) == true -> {
+                    run.setText("", 0)
+                }
+                text == "24" -> {
+                    run.setText(vacationDays, 0)
+                }
+                text.contains("2023-2024") -> {
+                    run.setText(text.replace("2023-2024", vacationPeriod), 0)
+                }
             }
-
-            firstRun.setText(updatedText, 0)
-            firstRun.fontFamily = fontFamily
-            firstRun.fontSize = fontSize
-            firstRun.isBold = isBold
         }
     }
 

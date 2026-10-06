@@ -36,6 +36,10 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.activity.compose)
             implementation(libs.ktor.client.cio)
+
+            // Apache POI 5.2.5 para procesamiento de documentos Word (.docx)
+            implementation("org.apache.poi:poi:5.2.5")
+            implementation("org.apache.poi:poi-ooxml:5.2.5")
         }
         jsMain.dependencies {
             implementation("io.ktor:ktor-client-js:2.3.11")
@@ -87,6 +91,13 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += listOf(
+                "META-INF/DEPENDENCIES",
+                "META-INF/LICENSE",
+                "META-INF/LICENSE.txt",
+                "META-INF/NOTICE",
+                "META-INF/NOTICE.txt"
+            )
         }
     }
     buildTypes {
