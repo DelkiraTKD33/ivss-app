@@ -3,6 +3,7 @@ package com.example.ivss.ui.profile.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -27,6 +28,7 @@ import com.example.ivss.domain.model.UserProfile
 import com.example.ivss.ui.components.BackButton
 import ivss.composeapp.generated.resources.Res
 import ivss.composeapp.generated.resources.usuario
+import ivss.composeapp.generated.resources.vacaciones
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -112,7 +114,7 @@ fun ProfileContent(viewModel: ProfileViewModel) {
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Tarjeta Encabezado del Usuario (Badge de servicio solo si posee)
+                        // Tarjeta Encabezado del Usuario con el Servicio en el Badge
                         ProfileHeaderCard(user = user)
 
                         // Información Personal en blanco por defecto con Lápiz para Editar/Rellenar
@@ -336,6 +338,7 @@ fun ProfileSectionCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditProfileDialog(
     user: UserProfile,
@@ -346,6 +349,26 @@ fun EditProfileDialog(
     var phone by remember { mutableStateOf(user.phone) }
     var birthDate by remember { mutableStateOf(user.birthDate) }
     var servicio by remember { mutableStateOf(user.servicio) }
+
+    var showDatePicker by remember { mutableStateOf(false) }
+    var expandedDropdown by remember { mutableStateOf(false) }
+
+    val serviciosList = listOf(
+        "RECURSOS HUMANOS",
+        "ADMINISTRACIÓN",
+        "DIRECCIÓN",
+        "ENFERMERÍA",
+        "MEDICINA INTERNA",
+        "UCI",
+        "PEDIATRÍA",
+        "CIRUGÍA",
+        "EMERGENCIA",
+        "TRAUMATOLOGÍA",
+        "LABORATORIO",
+        "FARMACIA",
+        "ODONTOLOGÍA",
+        "SERVICIOS GENERALES"
+    )
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -370,23 +393,65 @@ fun EditProfileDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                OutlinedTextField(
-                    value = birthDate,
-                    onValueChange = { birthDate = it },
-                    label = { Text("Fecha de Nacimiento") },
-                    placeholder = { Text("Ej: 15/05/1985") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                // Campo Fecha de Nacimiento con Selector de Calendario
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = birthDate,
+                        onValueChange = { birthDate = it },
+                        readOnly = true,
+                        label = { Text("Fecha de Nacimiento") },
+                        placeholder = { Text("Toca para abrir calendario") },
+                        trailingIcon = {
+                            IconButton(onClick = { showDatePicker = true }) {
+                                Icon(
+                                    painter = painterResource(Res.drawable.vacaciones),
+                                    contentDescription = "Abrir Calendario",
+                                    modifier = Modifier.size(20.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showDatePicker = true }
+                    )
+                }
 
-                OutlinedTextField(
-                    value = servicio,
-                    onValueChange = { servicio = it },
-                    label = { Text("Servicio / Departamento") },
-                    placeholder = { Text("Ej: CIRUGIA, DIRECCION, RRHH") },
-                    singleLine = true,
+                // Selector Dropdown de Servicio / Departamento
+                ExposedDropdownMenuBox(
+                    expanded = expandedDropdown,
+                    onExpandedChange = { expandedDropdown = !expandedDropdown },
                     modifier = Modifier.fillMaxWidth()
-                )
+                ) {
+                    OutlinedTextField(
+                        value = servicio,
+                        onValueChange = { },
+                        readOnly = true,
+                        label = { Text("Servicio / Departamento") },
+                        placeholder = { Text("Seleccionar servicio") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDropdown) },
+                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                        modifier = Modifier
+                            .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                            .fillMaxWidth()
+                    )
+
+                    ExposedDropdownMenu(
+                        expanded = expandedDropdown,
+                        onDismissRequest = { expandedDropdown = false }
+                    ) {
+                        serviciosList.forEach { item ->
+                            DropdownMenuItem(
+                                text = { Text(item, fontWeight = FontWeight.SemiBold) },
+                                onClick = {
+                                    servicio = item
+                                    expandedDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
@@ -403,4 +468,45 @@ fun EditProfileDialog(
             }
         }
     )
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState()
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            val totalDays = millis / 86400000L
+                            val daysSinceEpoch = totalDays.toInt()
+                            var days = daysSinceEpoch + 719468
+                            val era = (if (days >= 0) days else days - 146096) / 146097
+                            val doe = days - era * 146097
+                            val yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365
+                            val y = yoe + era * 400
+                            val doy = doe - (365 * yoe + yoe / 4 - yoe / 100)
+                            val mp = (5 * doy + 2) / 153
+                            val d = doy - (153 * mp + 2) / 5 + 1
+                            val m = mp + if (mp < 10) 3 else -9
+                            val year = y + if (m <= 2) 1 else 0
+
+                            val dStr = if (d < 10) "0$d" else "$d"
+                            val mStr = if (m < 10) "0$m" else "$m"
+                            birthDate = "$dStr/$mStr/$year"
+                        }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text("Aceptar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Cancelar")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 }
