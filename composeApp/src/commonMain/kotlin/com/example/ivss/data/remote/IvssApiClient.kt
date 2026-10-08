@@ -16,7 +16,12 @@ import kotlinx.serialization.json.Json
 data class AuthRequestDto(val email: String, val password: String)
 
 @Serializable
-data class AuthResponseDto(val success: Boolean, val token: String? = null, val message: String)
+data class AuthResponseDto(
+    val success: Boolean,
+    val token: String? = null,
+    val message: String,
+    val userProfile: UserProfileRemoteDto? = null
+)
 
 @Serializable
 data class UserProfileRemoteDto(
@@ -30,6 +35,16 @@ data class UserProfileRemoteDto(
     val status: String,
     val employer: String,
     val weeksContributed: Int,
+)
+
+@Serializable
+data class EmpleadoRemoteDto(
+    val cedula: String,
+    val nombreCompleto: String,
+    val cargo: String,
+    val servicio: String,
+    val tipoPersonal: String,
+    val fechaIngreso: String
 )
 
 @Serializable
@@ -85,6 +100,11 @@ class IvssApiClient {
     suspend fun getProfile(): Result<UserProfileRemoteDto> = runCatching {
         val response: ApiServerResponse<UserProfileRemoteDto> = client.get("$baseUrl/profile").body()
         response.data ?: throw Exception(response.message)
+    }
+
+    suspend fun getEmployees(): Result<List<EmpleadoRemoteDto>> = runCatching {
+        val response: ApiServerResponse<List<EmpleadoRemoteDto>> = client.get("$baseUrl/employees").body()
+        response.data ?: emptyList()
     }
 
     suspend fun updateContact(phone: String, email: String): Result<UserProfileRemoteDto> = runCatching {

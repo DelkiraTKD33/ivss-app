@@ -7,6 +7,7 @@ import com.example.ivss.domain.repository.ProfileRepository
 import com.example.ivss.domain.repository.SettingsRepository
 import com.example.ivss.platform.FileSaver
 import com.example.ivss.ui.forgotpassword.ui.ForgotPasswordViewModel
+import com.example.ivss.ui.home.ui.HomeViewModel
 import com.example.ivss.ui.login.ui.LoginViewModel
 import com.example.ivss.ui.profile.ui.ProfileViewModel
 import com.example.ivss.ui.register.ui.RegisterViewModel
@@ -25,6 +26,7 @@ val appModule = module {
     singleOf(::SettingsRepositoryImpl) { bind<SettingsRepository>() }
     factoryOf(::FileSaver)
 
+    viewModelOf(::HomeViewModel)
     viewModelOf(::LoginViewModel)
     viewModelOf(::RegisterViewModel)
     viewModelOf(::ForgotPasswordViewModel)

@@ -9,6 +9,7 @@ import com.example.ivss.server.plugins.seedSuperUsuario
 import com.example.ivss.server.routes.authRoutes
 import com.example.ivss.server.routes.constanciaRoutes
 import com.example.ivss.server.routes.protectedRoutes
+import com.example.ivss.server.security.PasswordUtil
 import com.example.ivss.server.services.ExcelImportService
 import com.example.ivss.server.services.PdfService
 import com.example.ivss.server.services.WordService
@@ -27,6 +28,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.or
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.util.concurrent.ConcurrentHashMap
@@ -181,9 +183,9 @@ fun Application.ivssServerModule() {
     )
 
     val vacationsList = ConcurrentHashMap<Int, VacationDto>().apply {
-        put(1, VacationDto(1, "Vacaciones Período 2024", "Aprobada", 15, 15, "PDF", "Forma_12-16_Vacaciones_2024.pdf"))
-        put(2, VacationDto(2, "Vacaciones Período 2023", "Aprobada", 15, 15, "WORD", "Forma_12-16_Vacaciones_2023.docx"))
-        put(3, VacationDto(3, "Adelanto Vacacional 2025", "En espera", 10, 15, "PDF", "Forma_12-16_Adelanto_2025.pdf"))
+        put(1, VacationDto(1, "Vacaciones Período 2024 - 2025", "Aprobada", 15, 15, "WORD", "Forma_12-16_Vacaciones_2024.docx"))
+        put(2, VacationDto(2, "Vacaciones Período 2023 - 2024", "Aprobada", 15, 15, "WORD", "Forma_12-16_Vacaciones_2023.docx"))
+        put(3, VacationDto(3, "Adelanto Vacacional 2021 - 2022", "En espera", 10, 15, "WORD", "Forma_12-16_Adelanto_2025.docx"))
     }
 
     var currentPasswordHash = "12345678"
@@ -196,7 +198,7 @@ fun Application.ivssServerModule() {
 
         // Health Check
         get("/api/health") {
-            call.respond(mapOf("status" to "OK", "service" to "IVSS Ktor Backend Server 5.0 (FileStorage + DocumentoRepository + Multiplatform FileSaver)"))
+            call.respond(mapOf("status" to "OK", "service" to "IVSS Ktor Backend Server 7.0 (Autenticación Estricta)"))
         }
 
         // Importación de Nómina Excel IVSS (.xlsx / .xls)
@@ -214,7 +216,7 @@ fun Application.ivssServerModule() {
             call.respond(
                 ApiResponse(
                     success = true,
-                    message = "Importación completada. Empleados insertados/actualizados: $insertados",
+                    message = "Importación completada. Empleados e Inicios de Sesión creados: $insertados",
                     data = mapOf("insertados" to insertados)
                 )
             )
@@ -237,35 +239,97 @@ fun Application.ivssServerModule() {
             call.respond(ApiResponse(success = true, message = "Empleados obtenidos", data = lista))
         }
 
-        // Autenticación Legacy/Directa
+        // Autenticación Estricta (Solo permite usuarios válidos registrados o admin/admin)
         post("/api/auth/login") {
             val req = call.receive<AuthRequest>()
-            if (req.email.isNotBlank() && req.password == currentPasswordHash) {
-                call.respond(
-                    AuthResponse(
-                        success = true,
-                        token = "JWT-IVSS-TOKEN-891230",
-                        message = "Inicio de sesión exitoso",
-                        userProfile = currentUserProfile
-                    )
+            val inputEmailOrUser = req.email.trim()
+
+            // 1. Caso Super Usuario admin / admin
+            if ((inputEmailOrUser.equals("admin", ignoreCase = true) || inputEmailOrUser.equals("admin@ivss.gob.ve", ignoreCase = true)) && req.password == "admin") {
+                val superUserProfile = currentUserProfile.copy(
+                    id = "ADM-000001",
+                    fullName = "Super Usuario Administrador",
+                    nationalId = "V-00.000.000",
+                    email = "admin@ivss.gob.ve",
+                    status = "SUPER_USUARIO",
+                    employer = "SEDE CENTRAL IVSS RECURSOS HUMANOS"
                 )
-            } else if (req.email.isNotBlank() && req.password.length >= 6) {
                 call.respond(
                     AuthResponse(
                         success = true,
-                        token = "JWT-IVSS-TOKEN-891230",
-                        message = "Inicio de sesión exitoso",
-                        userProfile = currentUserProfile
+                        token = "JWT-IVSS-SUPERUSER-TOKEN-001",
+                        message = "¡Inicio de sesión como Super Usuario Administrador exitoso!",
+                        userProfile = superUserProfile
                     )
                 )
             } else {
-                call.respond(
-                    HttpStatusCode.Unauthorized,
-                    AuthResponse(
-                        success = false,
-                        message = "Credenciales inválidas. Compruebe correo y contraseña."
+                // 2. Buscar en la base de datos SQLite (UsuariosTable y EmpleadosTable)
+                val cleanInput = inputEmailOrUser.replace("V-", "").replace("v-", "").replace(".", "").replace("-", "").trim()
+                val formattedCedula = "V-$cleanInput"
+
+                val userRow = transaction {
+                    UsuariosTable.selectAll().where {
+                        (UsuariosTable.username eq inputEmailOrUser) or
+                        (UsuariosTable.username eq cleanInput) or
+                        (UsuariosTable.username eq formattedCedula) or
+                        (UsuariosTable.cedula eq inputEmailOrUser) or
+                        (UsuariosTable.cedula eq formattedCedula) or
+                        (UsuariosTable.email eq inputEmailOrUser)
+                    }.firstOrNull()
+                }
+
+                if (userRow != null && userRow[UsuariosTable.activo]) {
+                    val passwordHash = userRow[UsuariosTable.passwordHash]
+                    val isPasswordValid = PasswordUtil.verify(req.password, passwordHash) ||
+                            req.password == cleanInput ||
+                            req.password == userRow[UsuariosTable.username] ||
+                            req.password == formattedCedula
+
+                    if (isPasswordValid) {
+                        val employeeCedula = userRow[UsuariosTable.cedula] ?: formattedCedula
+                        val empRow = transaction {
+                            EmpleadosTable.selectAll().where { EmpleadosTable.cedula eq employeeCedula }.firstOrNull()
+                        }
+
+                        val profile = UserProfileDto(
+                            id = "USR-${userRow[UsuariosTable.id].value}",
+                            fullName = userRow[UsuariosTable.nombreCompleto],
+                            nationalId = employeeCedula,
+                            email = userRow[UsuariosTable.email] ?: "$cleanInput@ivss.gob.ve",
+                            phone = "+58 412-1234567",
+                            birthDate = "15/05/1985",
+                            affiliationNumber = "100234891",
+                            status = if (userRow[UsuariosTable.rol] == "SUPER_USUARIO") "SUPER_USUARIO" else "Cotizante Activo",
+                            employer = empRow?.get(EmpleadosTable.descripcionUbi) ?: "HOSPITAL GENERAL MUNICIPAL IVSS SAN JUAN DE LOS MORROS.",
+                            weeksContributed = 850
+                        )
+
+                        call.respond(
+                            AuthResponse(
+                                success = true,
+                                token = "JWT-IVSS-TOKEN-${userRow[UsuariosTable.id].value}",
+                                message = "¡Inicio de sesión exitoso!",
+                                userProfile = profile
+                            )
+                        )
+                    } else {
+                        call.respond(
+                            HttpStatusCode.Unauthorized,
+                            AuthResponse(
+                                success = false,
+                                message = "Contraseña incorrecta. Recuerde que su contraseña es su Cédula de Identidad."
+                            )
+                        )
+                    }
+                } else {
+                    call.respond(
+                        HttpStatusCode.Unauthorized,
+                        AuthResponse(
+                            success = false,
+                            message = "Usuario no registrado. Verifique su número de Cédula o ingrese con admin/admin."
+                        )
                     )
-                )
+                }
             }
         }
 
@@ -368,7 +432,7 @@ fun Application.ivssServerModule() {
                     horario = "ASISTENCIAL",
                     fechaDesde = "2025-10-15",
                     fechaHasta = "2025-11-17",
-                    periodo = "2023-2024",
+                    periodo = vacation.name,
                     numeroDias = vacation.usedDays,
                     fechaReintegro = "2025-11-18",
                     observaciones = "Solicitud aprobada y registrada en el sistema IVSS.",
@@ -405,7 +469,7 @@ fun Application.ivssServerModule() {
                     horario = "ASISTENCIAL",
                     fechaDesde = "2025-10-15",
                     fechaHasta = "2025-11-17",
-                    periodo = "2023-2024",
+                    periodo = vacation.name,
                     numeroDias = vacation.usedDays,
                     fechaReintegro = "2025-11-18",
                     observaciones = "Solicitud aprobada y registrada en el sistema IVSS.",

@@ -60,7 +60,12 @@ fun LoginScreenContent(viewModel: LoginViewModel) {
         LoginForm(
             viewModel = viewModel,
             onForgotPasswordClick = { navigator.push(ForgotPasswordScreen()) },
-            onLoginClick = { navigator.replaceAll(HomeScreen()) }
+            onLoginClick = {
+                viewModel.performLogin(
+                    onSuccess = { navigator.replaceAll(HomeScreen()) },
+                    onError = { }
+                )
+            }
         )
 
         // Botón de Inicio con Huella / Biometría
@@ -120,12 +125,14 @@ private fun LoginForm(
     val email = viewModel.email.value
     val password = viewModel.password.value
     val loginEnable = viewModel.loginEnable.value
+    val loginError = viewModel.loginError.value
+    val isLoading = viewModel.isLoading.value
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         AuthTextField(
             value = email,
             onValueChange = { viewModel.onLoginChanged(it, password) },
-            label = "Correo electrónico",
+            label = "Correo o Cédula de Identidad",
             keyboardType = KeyboardType.Email
         )
 
@@ -139,6 +146,17 @@ private fun LoginForm(
             isPasswordField = true
         )
 
+        if (loginError != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = loginError,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+        }
+
         Spacer(modifier = Modifier.height(8.dp))
 
         AuthClickableLabel(
@@ -150,8 +168,8 @@ private fun LoginForm(
         Spacer(modifier = Modifier.height(24.dp))
 
         AuthButton(
-            text = "Entrar",
-            enabled = loginEnable,
+            text = if (isLoading) "Verificando..." else "Entrar",
+            enabled = loginEnable && !isLoading,
             onClick = onLoginClick
         )
     }

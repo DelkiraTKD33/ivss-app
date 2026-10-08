@@ -21,6 +21,11 @@ object PdfService {
     fun generarConstancia(datos: DatosConstancia): ByteArray {
         val out = ByteArrayOutputStream()
 
+        // Extraer años dinámicos del período (ej: "2022" y "2023")
+        val years = Regex("\\b\\d{4}\\b").findAll(datos.periodo).map { it.value }.toList()
+        val yearStart = if (years.size >= 2) years[0] else if (years.isNotEmpty()) years[0] else "2024"
+        val yearEnd = if (years.size >= 2) years[1] else (yearStart.toIntOrNull()?.plus(1)?.toString() ?: "2025")
+
         Document(PageSize.LETTER, 20f, 20f, 20f, 20f).use { doc ->
             val writer = PdfWriter.getInstance(doc, out)
             doc.open()
@@ -109,9 +114,9 @@ object PdfService {
             doc.add(Paragraph(" ", FONT_MINI))
 
             // 4. TABLA PRINCIPAL DE DATOS DEL TRABAJADOR O TRABAJADORA
-            val workerTable = PdfPTable(5).apply {
+            val workerTable = PdfPTable(6).apply {
                 widthPercentage = 100f
-                setWidths(floatArrayOf(5f, 33f, 21f, 21f, 20f))
+                setWidths(floatArrayOf(5f, 17f, 16f, 21f, 21f, 20f))
             }
 
             // Celda vertical izquierda
@@ -125,17 +130,17 @@ object PdfService {
             workerTable.addCell(verticalCell)
 
             // Fila 1: Apellidos y Cédula
-            workerTable.addCell(celdaLabelValor(FormatoVacaciones.TITULO_APELLIDOS, datos.apellidosNombres, colSpan = 2, boldVal = true))
+            workerTable.addCell(celdaLabelValor(FormatoVacaciones.TITULO_APELLIDOS, datos.apellidosNombres, colSpan = 3, boldVal = true))
             workerTable.addCell(celdaLabelValor(FormatoVacaciones.TITULO_CEDULA, datos.cedula, colSpan = 2, boldVal = true))
 
             // Fila 2: Cargo, N°, Fecha Ingreso, Cod Origen
-            workerTable.addCell(celdaLabelValor(FormatoVacaciones.TITULO_DENOMINACION, datos.denominacionCargo, colSpan = 1))
+            workerTable.addCell(celdaLabelValor(FormatoVacaciones.TITULO_DENOMINACION, datos.denominacionCargo, colSpan = 2))
             workerTable.addCell(celdaLabelValor(FormatoVacaciones.TITULO_NUMERO_CARGO, datos.numeroCargo, colSpan = 1))
             workerTable.addCell(celdaLabelValor(FormatoVacaciones.TITULO_FECHA_INGRESO, "01 / 11 / 2019", colSpan = 1))
             workerTable.addCell(celdaLabelValor(FormatoVacaciones.TITULO_COD_ORIGEN, datos.codigoOrigenServicio, colSpan = 1))
 
             // Fila 3: Unidad, Lugar, Horario, Días Semana
-            workerTable.addCell(celdaLabelValor(FormatoVacaciones.TITULO_UNIDAD, datos.unidadServicio, colSpan = 1))
+            workerTable.addCell(celdaLabelValor(FormatoVacaciones.TITULO_UNIDAD, datos.unidadServicio, colSpan = 2))
             workerTable.addCell(celdaLabelValor(FormatoVacaciones.TITULO_LUGAR, datos.lugar, colSpan = 1))
             workerTable.addCell(celdaLabelValor(FormatoVacaciones.TITULO_HORARIO, datos.horario, colSpan = 1))
             workerTable.addCell(celdaLabelValor("DÍAS A LA SEMANA", "5", colSpan = 1))
@@ -153,24 +158,25 @@ object PdfService {
             val pLapsoHeader = Paragraph().apply {
                 alignment = Element.ALIGN_CENTER
                 add(Chunk("LAPSO DE DISFRUTE DE VACACIONES\n", FONT_TITULO))
-                add(Chunk("DESDE: 15/10/2025   HASTA: 17/11/2025", FONT_VALOR_BOLD))
+                add(Chunk("DESDE: 15/10/$yearStart   HASTA: 17/11/$yearEnd", FONT_VALOR_BOLD))
             }
             val lapsoCell = PdfPCell(pLapsoHeader).apply {
-                colspan = 2
+                colspan = 3
                 horizontalAlignment = Element.ALIGN_CENTER
                 verticalAlignment = Element.ALIGN_MIDDLE
                 setPadding(4f)
             }
             workerTable.addCell(lapsoCell)
 
-            // Fila 5: Periodo y Reintegro
-            workerTable.addCell(celdaLabelValor(FormatoVacaciones.TITULO_PERIODO, datos.periodo, colSpan = 1))
+            // Fila 5: Periodo Dividido (Año Inicio | Año Fin) y Reintegro
+            workerTable.addCell(celdaLabelValor("PERIODO (DESDE)", yearStart, colSpan = 1, boldVal = true))
+            workerTable.addCell(celdaLabelValor("PERIODO (HASTA)", yearEnd, colSpan = 1, boldVal = true))
             workerTable.addCell(celdaLabelValor(FormatoVacaciones.TITULO_DIAS, "${datos.numeroDias} DÍAS", colSpan = 1, boldVal = true))
 
             val pReintegro = Paragraph().apply {
                 alignment = Element.ALIGN_CENTER
                 add(Chunk("HÁBILES, DEBERÁ REINTEGRARSE EL DÍA:\n", FONT_TITULO))
-                add(Chunk("18 / 11 / 2025", FONT_VALOR_BOLD))
+                add(Chunk("18 / 11 / $yearEnd", FONT_VALOR_BOLD))
             }
             val reintegroCell = PdfPCell(pReintegro).apply {
                 colspan = 2
@@ -188,7 +194,7 @@ object PdfService {
             val pObs = Paragraph().apply {
                 add(Chunk("OBSERVACIONES:\n", FONT_VALOR_BOLD))
                 add(Chunk("NOTA:\n", FONT_VALOR_BOLD))
-                add(Chunk("EL TRABAJADOR SOLICITO DICHO VACACIONES CON EXPOSICION DE MOTIVO. CORRESPONDIENTES AL PERIODO ${datos.periodo}.", FONT_VALOR))
+                add(Chunk("EL TRABAJADOR SOLICITO DICHO VACACIONES CON EXPOSICION DE MOTIVO. CORRESPONDIENTES AL PERIODO $yearStart - $yearEnd.", FONT_VALOR))
             }
             val obsCell = PdfPCell(pObs).apply { setPadding(6f) }
             obsTable.addCell(obsCell)

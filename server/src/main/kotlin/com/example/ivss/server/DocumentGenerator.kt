@@ -15,8 +15,7 @@ object DocumentGenerator {
 
     /**
      * Utiliza la plantilla exacta JENNIFER HERNANDEZ.docx (Forma_12-16_Template.docx)
-     * modificando el texto de los runs existentes in-place sin alterar ni eliminar la estructura
-     * del XML de Microsoft Word, garantizando un archivo .docx 100% válido y libre de corrupción.
+     * unificando los runs del párrafo para reemplazar los marcadores sin romper el formato.
      */
     fun generateDocxFromTemplate(
         templatePath: String = "server/src/main/resources/templates/Forma_12-16_Template.docx",
@@ -70,44 +69,72 @@ object DocumentGenerator {
 
     private fun replaceInParagraph(paragraph: XWPFParagraph, user: UserProfileDto, vacation: VacationDto) {
         val userName = user.fullName.uppercase()
-        val nationalId = user.nationalId
+        val nationalIdClean = user.nationalId.replace("V-", "").replace("v-", "").replace("E-", "").replace("e-", "").trim()
         val employerName = user.employer.uppercase()
         val vacationDays = vacation.usedDays.toString()
-        val vacationPeriod = vacation.name.uppercase()
 
-        val runs = paragraph.runs
-        if (runs.isEmpty()) return
+        val textOriginal = paragraph.runs.joinToString("") { it.getText(0) ?: "" }
+        if (textOriginal.isBlank()) return
 
-        for (i in 0 until runs.size) {
-            val run = runs[i]
-            val text = run.getText(0) ?: continue
+        var updatedText = textOriginal
+        var hasChanges = false
 
-            when {
-                text.contains("HERNANDEZ RON JENNIFFE") -> {
-                    run.setText(text.replace("HERNANDEZ RON JENNIFFE", userName), 0)
-                }
-                text == "R" && i > 0 && (runs[i - 1].getText(0)?.contains(userName) == true || runs[i - 1].getText(0)?.contains("HERNANDEZ") == true) -> {
-                    run.setText("", 0)
-                }
-                text == "17" -> {
-                    run.setText(nationalId.replace("V-", "").replace("v-", "").trim(), 0)
-                }
-                text == "062" || text == "973" -> {
-                    run.setText("", 0)
-                }
-                text.contains("HOSPITAL GENERAL MUNICIPAL IVSS SAN JUAN DE LOS M") -> {
-                    run.setText(text.replace("HOSPITAL GENERAL MUNICIPAL IVSS SAN JUAN DE LOS M", employerName), 0)
-                }
-                text == "ORROS." && i > 0 && runs[i - 1].getText(0)?.contains(employerName) == true -> {
-                    run.setText("", 0)
-                }
-                text == "24" -> {
-                    run.setText(vacationDays, 0)
-                }
-                text.contains("2023-2024") -> {
-                    run.setText(text.replace("2023-2024", vacationPeriod), 0)
-                }
+        // Extraer años dinámicos del período
+        val years = Regex("\\b\\d{4}\\b").findAll(vacation.name).map { it.value }.toList()
+        val yearStart = if (years.size >= 2) years[0] else if (years.isNotEmpty()) years[0] else "2024"
+        val yearEnd = if (years.size >= 2) years[1] else (yearStart.toIntOrNull()?.plus(1)?.toString() ?: "2025")
+        val periodFormatted = "$yearStart - $yearEnd"
+
+        // Paso 1: Reemplazar frases largas y marcar tokens temporales únicos
+        val phase1Replacements = mapOf(
+            "HERNANDEZ RON JENNIFFER" to userName,
+            "17.062.973" to nationalIdClean,
+            "HOSPITAL GENERAL MUNICIPAL IVSS SAN JUAN DE LOS MORROS." to employerName,
+            "HOSPITAL GENERAL MUNICIPAL IVSS SAN JUAN DE LOS MORROS" to employerName,
+            "2023-2024" to "__IVSS_FULL_PERIOD__",
+            "2023 - 2024" to "__IVSS_FULL_PERIOD__",
+            "2015 - 2025" to "__IVSS_FULL_PERIOD__",
+            "2015-2025" to "__IVSS_FULL_PERIOD__",
+            "2023" to "__IVSS_YEAR_START__",
+            "2024" to "__IVSS_YEAR_END__",
+            "2015" to "__IVSS_YEAR_END__",
+            "24" to vacationDays
+        )
+
+        phase1Replacements.forEach { (target, replacement) ->
+            if (updatedText.contains(target)) {
+                updatedText = updatedText.replace(target, replacement)
+                hasChanges = true
             }
+        }
+
+        // Paso 2: Sustituir los tokens por los años reales finales (evita sobreescritura en cascada)
+        if (updatedText.contains("__IVSS_YEAR_START__")) {
+            updatedText = updatedText.replace("__IVSS_YEAR_START__", yearStart)
+            hasChanges = true
+        }
+        if (updatedText.contains("__IVSS_YEAR_END__")) {
+            updatedText = updatedText.replace("__IVSS_YEAR_END__", yearEnd)
+            hasChanges = true
+        }
+        if (updatedText.contains("__IVSS_FULL_PERIOD__")) {
+            updatedText = updatedText.replace("__IVSS_FULL_PERIOD__", periodFormatted)
+            hasChanges = true
+        }
+
+        if (hasChanges) {
+            val firstRun = paragraph.runs.firstOrNull()
+            val fontFamily = firstRun?.fontFamily ?: "Arial"
+            val isBold = firstRun?.isBold ?: false
+
+            for (i in paragraph.runs.indices.reversed()) {
+                paragraph.removeRun(i)
+            }
+
+            val newRun = paragraph.createRun()
+            newRun.setText(updatedText)
+            newRun.fontFamily = fontFamily
+            newRun.isBold = isBold
         }
     }
 
@@ -160,7 +187,7 @@ object DocumentGenerator {
             numeroDias = vacation.usedDays,
             fechaReintegro = "2025-11-18",
             observaciones = "Solicitud aprobada y registrada en el sistema IVSS.",
-            nota = "EL TRABAJADOR SOLICITÓ DICHAS VACACIONES (${vacation.name.uppercase()}) CORRESPONDIENTES AL PERIODO 2023-2024 CON EXPOSICIÓN DE MOTIVO.",
+            nota = "EL TRABAJADOR SOLICITÓ DICHAS VACACIONES (${vacation.name.uppercase()}) CORRESPONDIENTES AL PERIODO CON EXPOSICIÓN DE MOTIVO.",
             supervisorInmediato = "DR. WILLIAMS GONZALEZ",
             coordinadorRRHH = "LCDA. MAYARI SOJO",
             maximaAutoridad = "DR. JULIO AQUINO"

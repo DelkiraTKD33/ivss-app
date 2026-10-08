@@ -41,8 +41,12 @@ class SettingsScreen : Screen {
 fun SettingsContent(viewModel: SettingsViewModel) {
     val navigator = LocalNavigator.currentOrThrow
     val preferences by viewModel.preferences.collectAsState()
+    val userProfile by viewModel.userProfile.collectAsState()
     val showChangePasswordDialog by viewModel.showChangePasswordDialog
     val changePasswordState by viewModel.changePasswordState
+
+    val showUploadExcelDialog by viewModel.showUploadExcelDialog
+    val uploadExcelState by viewModel.uploadExcelState
 
     Scaffold(
         topBar = {
@@ -72,6 +76,27 @@ fun SettingsContent(viewModel: SettingsViewModel) {
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Sección: Administración y Nómina (EXCLUSIVA PARA SUPER USUARIO / ADMIN)
+                if (userProfile?.isSuperUser == true) {
+                    SettingsSection(title = "Administración y Nómina (Super Usuario)") {
+                        SettingActionItem(
+                            title = "Cargar Nómina / Base de Datos Excel",
+                            subtitle = "Importa archivo .xlsx / .xls y genera usuarios automáticamente (Usuario y Clave = Cédula)",
+                            icon = Res.drawable.opcion,
+                            onClick = { viewModel.onOpenUploadExcelDialog() }
+                        )
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                        SettingActionItem(
+                            title = "Exportar Base de Datos a Excel",
+                            subtitle = "Descarga la base de datos completa de trabajadores en formato .xlsx",
+                            icon = Res.drawable.opcion,
+                            onClick = { viewModel.exportExcelDatabase() }
+                        )
+                    }
+                }
+
                 // Sección: Cuenta y Seguridad
                 SettingsSection(title = "Cuenta y Seguridad") {
                     SettingActionItem(
@@ -147,6 +172,122 @@ fun SettingsContent(viewModel: SettingsViewModel) {
             onConfirm = { currentPass, newPass -> viewModel.changePassword(currentPass, newPass) }
         )
     }
+
+    if (showUploadExcelDialog) {
+        UploadExcelDialog(
+            state = uploadExcelState,
+            onDismiss = { viewModel.onDismissUploadExcelDialog() },
+            onConfirmUpload = { fileName -> viewModel.importExcelDatabase(fileName) }
+        )
+    }
+}
+
+@Composable
+fun UploadExcelDialog(
+    state: UploadExcelState,
+    onDismiss: () -> Unit,
+    onConfirmUpload: (fileName: String) -> Unit
+) {
+    var selectedFileName by remember { mutableStateOf("Nomina_Trabajadores_IVSS.xlsx") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Gestión de Nómina Excel (Super Usuario)", fontWeight = FontWeight.Bold)
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (state is UploadExcelState.Success) {
+                    Text(
+                        text = state.message,
+                        color = Color(0xFF2E7D32),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.5.sp
+                    )
+                } else {
+                    Text(
+                        text = "Selecciona un archivo de Excel (.xlsx / .xls) con la nómina de trabajadores del centro asistencial.",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    OutlinedTextField(
+                        value = selectedFileName,
+                        onValueChange = { selectedFileName = it },
+                        label = { Text("Nombre del archivo Excel") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "💡 Creación Automática de Cuentas:",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                text = "Al procesar la nómina, cada trabajador tendrá asignado como Usuario y Contraseña inicial su número de Cédula.",
+                                fontSize = 11.5.sp,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+
+                    if (state is UploadExcelState.Error) {
+                        Text(
+                            text = state.error,
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (state is UploadExcelState.Success) {
+                Button(onClick = onDismiss) {
+                    Text("Aceptar")
+                }
+            } else {
+                Button(
+                    onClick = { onConfirmUpload(selectedFileName) },
+                    enabled = selectedFileName.isNotBlank() && state !is UploadExcelState.Loading
+                ) {
+                    if (state is UploadExcelState.Loading) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                            Text("Procesando...")
+                        }
+                    } else {
+                        Text("Cargar e Importar")
+                    }
+                }
+            }
+        },
+        dismissButton = {
+            if (state !is UploadExcelState.Success) {
+                TextButton(onClick = onDismiss) {
+                    Text("Cancelar")
+                }
+            }
+        }
+    )
 }
 
 @Composable

@@ -190,6 +190,12 @@ fun OfficialForma1216View(
     val userNationalId = userProfile?.nationalId ?: "V- 17.062.973"
     val employerName = userProfile?.employer?.uppercase() ?: "HOSPITAL GENERAL MUNICIPAL IVSS SAN JUAN DE LOS MORROS."
 
+    // Extraer años de inicio y fin del período (ej: "2022" y "2023" o "2024" y "2025")
+    val years = Regex("\\b\\d{4}\\b").findAll(vacation.name).map { it.value }.toList()
+    val yearStart = if (years.size >= 2) years[0] else if (years.isNotEmpty()) years[0] else "2022"
+    val yearEnd = if (years.size >= 2) years[1] else (yearStart.toIntOrNull()?.plus(1)?.toString() ?: "2023")
+    val periodFormatted = "$yearStart - $yearEnd"
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
@@ -471,46 +477,106 @@ fun OfficialForma1216View(
 
                 HorizontalDivider(color = Color.Black, thickness = 1.dp)
 
-                // Fila Lapso de Disfrute
+                // Fila Lapso de Disfrute y Periodo
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column(
                         modifier = Modifier
                             .weight(1f)
+                            .fillMaxHeight()
                             .border(0.5.dp, Color.Black)
-                            .padding(6.dp)
+                            .padding(4.dp),
+                        verticalArrangement = Arrangement.Center
                     ) {
-                        Text("DESDE (D/M/A)", fontSize = 7.sp, color = Color.DarkGray)
-                        Text("15 / 10 / 2025", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                        Text("DESDE (D/M/A)", fontSize = 6.5.sp, color = Color.DarkGray)
+                        Text("15 / 10 / $yearStart", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = Color.Black)
                     }
                     Column(
                         modifier = Modifier
                             .weight(1f)
+                            .fillMaxHeight()
                             .border(0.5.dp, Color.Black)
-                            .padding(6.dp)
+                            .padding(4.dp),
+                        verticalArrangement = Arrangement.Center
                     ) {
-                        Text("HASTA (D/M/A)", fontSize = 7.sp, color = Color.DarkGray)
-                        Text("17 / 11 / 2025", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                        Text("HASTA (D/M/A)", fontSize = 6.5.sp, color = Color.DarkGray)
+                        Text("17 / 11 / $yearEnd", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = Color.Black)
                     }
+
+                    // Cuadro de PERIODO con 2 sub-cuadros individuales (Año Inicio ej 2022 | Año Fin ej 2023)
+                    Column(
+                        modifier = Modifier
+                            .weight(1.2f)
+                            .fillMaxHeight()
+                            .border(0.5.dp, Color.Black)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(0.5.dp, Color.Black)
+                                .padding(2.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("PERIODO", fontSize = 7.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .border(0.5.dp, Color.Black)
+                                    .padding(2.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(yearStart, fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, color = Color.Black)
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .border(0.5.dp, Color.Black)
+                                    .padding(2.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(yearEnd, fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, color = Color.Black)
+                            }
+                        }
+                    }
+
+                    // Cuadro de Nº DE DÍAS
                     Column(
                         modifier = Modifier
                             .weight(0.8f)
+                            .fillMaxHeight()
                             .border(0.5.dp, Color.Black)
-                            .padding(6.dp)
                     ) {
-                        Text("PERIODO", fontSize = 7.sp, color = Color.DarkGray)
-                        Text("2023 - 2024", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-                    }
-                    Column(
-                        modifier = Modifier
-                            .weight(0.8f)
-                            .border(0.5.dp, Color.Black)
-                            .padding(6.dp)
-                    ) {
-                        Text("Nº DE DÍAS", fontSize = 7.sp, color = Color.DarkGray)
-                        Text("${vacation.usedDays} DÍAS", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF2E7D32))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(0.5.dp, Color.Black)
+                                .padding(2.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Nº DE DÍAS", fontSize = 7.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .padding(2.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("${vacation.usedDays}", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF2E7D32))
+                        }
                     }
                 }
 
@@ -522,7 +588,7 @@ fun OfficialForma1216View(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "HÁBILES, DEBERÁ REINTEGRARSE EL DÍA: 18 / 11 / 2025",
+                        text = "HÁBILES, DEBERÁ REINTEGRARSE EL DÍA: 18 / 11 / $yearEnd",
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.Black
@@ -530,7 +596,7 @@ fun OfficialForma1216View(
                 }
             }
 
-            // OBSERVACIONES
+            // OBSERVACIONES Y NOTA
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -541,7 +607,7 @@ fun OfficialForma1216View(
                 Text("OBSERVACIONES:", fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = Color.Black)
                 Text("NOTA:", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Color.Black)
                 Text(
-                    text = "EL TRABAJADOR SOLICITO DICHO VACACIONES CON EXPOSICION DE MOTIVO. CORRESPONDIENTES AL PERIODO 2023-2024.",
+                    text = "EL TRABAJADOR SOLICITO DICHO VACACIONES CON EXPOSICION DE MOTIVO. CORRESPONDIENTES AL PERIODO $periodFormatted.",
                     fontSize = 8.5.sp,
                     color = Color.DarkGray
                 )
