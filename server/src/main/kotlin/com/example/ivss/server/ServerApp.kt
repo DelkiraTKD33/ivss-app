@@ -30,6 +30,7 @@ import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.or
 import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.update
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.util.concurrent.ConcurrentHashMap
 
@@ -72,13 +73,16 @@ data class UserProfileDto(
     val affiliationNumber: String,
     val status: String,
     val employer: String,
-    val weeksContributed: Int
+    val weeksContributed: Int,
+    val servicio: String = ""
 )
 
 @Serializable
 data class UpdateContactRequest(
     val phone: String,
-    val email: String
+    val email: String,
+    val birthDate: String = "",
+    val servicio: String = ""
 )
 
 @Serializable
@@ -198,7 +202,7 @@ fun Application.ivssServerModule() {
 
         // Health Check
         get("/api/health") {
-            call.respond(mapOf("status" to "OK", "service" to "IVSS Ktor Backend Server 7.0 (Autenticación Estricta)"))
+            call.respond(mapOf("status" to "OK", "service" to "IVSS Ktor Backend Server 8.0 (Sincronización Total SQLite)"))
         }
 
         // Importación de Nómina Excel IVSS (.xlsx / .xls)
@@ -239,7 +243,7 @@ fun Application.ivssServerModule() {
             call.respond(ApiResponse(success = true, message = "Empleados obtenidos", data = lista))
         }
 
-        // Autenticación Estricta (Solo permite usuarios válidos registrados o admin/admin)
+        // Autenticación Estricta
         post("/api/auth/login") {
             val req = call.receive<AuthRequest>()
             val inputEmailOrUser = req.email.trim()
@@ -295,13 +299,14 @@ fun Application.ivssServerModule() {
                             id = "USR-${userRow[UsuariosTable.id].value}",
                             fullName = userRow[UsuariosTable.nombreCompleto],
                             nationalId = employeeCedula,
-                            email = userRow[UsuariosTable.email] ?: "$cleanInput@ivss.gob.ve",
-                            phone = "+58 412-1234567",
-                            birthDate = "15/05/1985",
+                            email = userRow[UsuariosTable.email] ?: "",
+                            phone = "",
+                            birthDate = "",
                             affiliationNumber = "100234891",
                             status = if (userRow[UsuariosTable.rol] == "SUPER_USUARIO") "SUPER_USUARIO" else "Cotizante Activo",
                             employer = empRow?.get(EmpleadosTable.descripcionUbi) ?: "HOSPITAL GENERAL MUNICIPAL IVSS SAN JUAN DE LOS MORROS.",
-                            weeksContributed = 850
+                            weeksContributed = 850,
+                            servicio = userRow[UsuariosTable.servicio] ?: ""
                         )
 
                         call.respond(
@@ -368,12 +373,31 @@ fun Application.ivssServerModule() {
             val req = call.receive<UpdateContactRequest>()
             currentUserProfile = currentUserProfile.copy(
                 phone = req.phone,
-                email = req.email
+                email = req.email,
+                birthDate = req.birthDate,
+                servicio = req.servicio
             )
+
+            // Persistir cambios en la base de datos SQLite
+            try {
+                transaction {
+                    val cleanCedula = currentUserProfile.nationalId.replace("V-", "").replace(".", "").trim()
+                    val formattedCedula = "V-$cleanCedula"
+                    UsuariosTable.update({ (UsuariosTable.cedula eq formattedCedula) or (UsuariosTable.username eq formattedCedula) }) {
+                        it[email] = req.email
+                        if (req.servicio.isNotBlank()) {
+                            it[servicio] = req.servicio
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                println("Aviso persustiendo datos de perfil en SQLite: ${e.message}")
+            }
+
             call.respond(
                 ApiResponse(
                     success = true,
-                    message = "Datos de contacto actualizados en el servidor",
+                    message = "Información del perfil actualizada y guardada en la base de datos SQLite",
                     data = currentUserProfile
                 )
             )

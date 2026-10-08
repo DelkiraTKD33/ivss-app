@@ -35,6 +35,7 @@ data class UserProfileRemoteDto(
     val status: String,
     val employer: String,
     val weeksContributed: Int,
+    val servicio: String = ""
 )
 
 @Serializable
@@ -48,7 +49,12 @@ data class EmpleadoRemoteDto(
 )
 
 @Serializable
-data class UpdateContactRequestDto(val phone: String, val email: String)
+data class UpdateContactRequestDto(
+    val phone: String,
+    val email: String,
+    val birthDate: String = "",
+    val servicio: String = ""
+)
 
 @Serializable
 data class VacationRemoteDto(
@@ -107,10 +113,10 @@ class IvssApiClient {
         response.data ?: emptyList()
     }
 
-    suspend fun updateContact(phone: String, email: String): Result<UserProfileRemoteDto> = runCatching {
+    suspend fun updateContact(phone: String, email: String, birthDate: String = "", servicio: String = ""): Result<UserProfileRemoteDto> = runCatching {
         val response: ApiServerResponse<UserProfileRemoteDto> = client.put("$baseUrl/profile/contact") {
             contentType(ContentType.Application.Json)
-            setBody(UpdateContactRequestDto(phone, email))
+            setBody(UpdateContactRequestDto(phone, email, birthDate, servicio))
         }.body()
         response.data ?: throw Exception(response.message)
     }
