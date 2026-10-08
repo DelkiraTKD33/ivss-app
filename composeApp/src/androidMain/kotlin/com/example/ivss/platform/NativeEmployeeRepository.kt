@@ -1,5 +1,6 @@
 package com.example.ivss.platform
 
+import com.example.ivss.domain.model.UserProfile
 import com.example.ivss.ui.home.ui.ActiveEmployeeItem
 import org.apache.poi.ss.usermodel.CellType
 import org.apache.poi.ss.usermodel.WorkbookFactory
@@ -55,9 +56,9 @@ actual object NativeEmployeeRepository {
                             val apellido1 = row.getCell(5)?.toString()?.trim() ?: ""
                             val nombre1 = row.getCell(6)?.toString()?.trim() ?: ""
                             val cargoVal = row.getCell(4)?.toString()?.trim() ?: "MÉDICO / TRABAJADOR IVSS"
-                            val servicioVal = row.getCell(2)?.toString()?.trim() ?: row.getCell(1)?.toString()?.trim() ?: "GENERAL"
+                            val fullUbi = row.getCell(2)?.toString()?.trim() ?: ""
+                            val servicioVal = if (fullUbi.contains("-")) fullUbi.substringAfterLast("-").trim() else fullUbi
 
-                            // Leer Fecha de Ingreso directamente desde Columnas 14 (Día), 15 (Mes), 16 (Año)
                             val diaVal = row.getCell(14)?.let {
                                 if (it.cellType == CellType.NUMERIC) it.numericCellValue.toInt() else it.toString().trim().toIntOrNull()
                             } ?: 1
@@ -96,5 +97,103 @@ actual object NativeEmployeeRepository {
             ActiveEmployeeItem("V-14.890.123", "MAYARI", "SOJO", "COORDINADOR DE RRHH", "10/08/2016", "RECURSOS HUMANOS"),
             ActiveEmployeeItem("V-11.222.333", "JULIO", "AQUINO", "MÁXIMA AUTORIDAD - DIRECTOR", "01/01/2010", "DIRECCIÓN GENERAL")
         )
+    }
+
+    actual fun findEmployeeByCedula(cedulaInput: String): UserProfile? {
+        val cleanCedulaNum = cedulaInput.replace("V-", "").replace("v-", "")
+            .replace(".", "").replace("-", "").replace("E7", "").replace("E8", "").trim()
+        if (cleanCedulaNum.isBlank()) return null
+
+        val context = AppContextHolder.context
+        val externalFile = File("C:\\Users\\Delkira\\Downloads\\ivss db\\60207382-60209382..xls")
+
+        val inputStream: InputStream? = when {
+            context != null -> {
+                try {
+                    context.assets.open("nomina_activos.xls")
+                } catch (e: Exception) {
+                    if (externalFile.exists()) FileInputStream(externalFile) else null
+                }
+            }
+            externalFile.exists() -> FileInputStream(externalFile)
+            else -> null
+        }
+
+        if (inputStream != null) {
+            try {
+                WorkbookFactory.create(inputStream).use { wb ->
+                    val sheet = wb.getSheetAt(0)
+                    if (sheet != null && sheet.lastRowNum >= 1) {
+                        for (r in 1..sheet.lastRowNum) {
+                            val row = sheet.getRow(r) ?: continue
+                            val cedulaCell = row.getCell(7) ?: continue
+
+                            val rawCedulaString = when (cedulaCell.cellType) {
+                                CellType.NUMERIC -> cedulaCell.numericCellValue.toLong().toString()
+                                CellType.STRING -> cedulaCell.stringCellValue.trim()
+                                else -> cedulaCell.toString().trim()
+                            }
+
+                            val rowCleanCedula = rawCedulaString.replace("V-", "").replace("v-", "")
+                                .replace(".", "").replace("-", "").replace("E7", "").replace("E8", "").trim()
+
+                            if (rowCleanCedula == cleanCedulaNum) {
+                                val apellido1 = row.getCell(5)?.toString()?.trim() ?: ""
+                                val nombre1 = row.getCell(6)?.toString()?.trim() ?: ""
+                                val cargoVal = row.getCell(4)?.toString()?.trim() ?: "CONTRATADO"
+                                val fullUbi = row.getCell(2)?.toString()?.trim() ?: ""
+                                val extractedServicio = when {
+                                    fullUbi.contains("-") -> fullUbi.substringAfterLast("-").trim()
+                                    fullUbi.startsWith("HOSPITAL", ignoreCase = true) -> ""
+                                    else -> fullUbi
+                                }
+
+                                val diaVal = row.getCell(14)?.let {
+                                    if (it.cellType == CellType.NUMERIC) it.numericCellValue.toInt() else it.toString().trim().toIntOrNull()
+                                } ?: 1
+                                val mesVal = row.getCell(15)?.let {
+                                    if (it.cellType == CellType.NUMERIC) it.numericCellValue.toInt() else it.toString().trim().toIntOrNull()
+                                } ?: 11
+                                val anioVal = row.getCell(16)?.let {
+                                    if (it.cellType == CellType.NUMERIC) it.numericCellValue.toInt() else it.toString().trim().toIntOrNull()
+                                } ?: 2019
+
+                                val formattedCedula = try {
+                                    val num = cleanCedulaNum.toLong()
+                                    val withDots = String.format("%,d", num).replace(',', '.')
+                                    "V-$withDots"
+                                } catch (e: Exception) {
+                                    "V-$cleanCedulaNum"
+                                }
+
+                                val fullNombre = "$nombre1 $apellido1".trim().ifBlank { "TRABAJADOR IVSS" }
+
+                                inputStream.close()
+                                return UserProfile(
+                                    id = "USR-$cleanCedulaNum",
+                                    fullName = fullNombre,
+                                    nationalId = formattedCedula,
+                                    email = "",
+                                    phone = "",
+                                    birthDate = "",
+                                    affiliationNumber = "100234891",
+                                    status = "Cotizante Activo",
+                                    servicio = extractedServicio,
+                                    cargo = cargoVal,
+                                    numeroCargo = "CONTRATADO",
+                                    employer = fullUbi.ifBlank { "HOSPITAL GENERAL MUNICIPAL IVSS SAN JUAN DE LOS MORROS." },
+                                    fechaIngreso = String.format("%02d/%02d/%d", diaVal, mesVal, anioVal),
+                                    weeksContributed = 850
+                                )
+                            }
+                        }
+                    }
+                }
+                inputStream.close()
+            } catch (e: Exception) {
+                // Fallback
+            }
+        }
+        return null
     }
 }

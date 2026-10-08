@@ -39,14 +39,19 @@ class ProfileViewModel(
             initialValue = ProfileUiState.Loading
         )
 
-    fun updateProfileInfo(newPhone: String, newEmail: String) {
+    fun updateProfileInfo(newPhone: String, newEmail: String, newBirthDate: String, newServicio: String = "") {
         val currentState = uiState.value
         if (currentState is ProfileUiState.Success) {
-            val updated = currentState.user.copy(phone = newPhone, email = newEmail)
+            val updated = currentState.user.copy(
+                phone = newPhone,
+                email = newEmail,
+                birthDate = newBirthDate,
+                servicio = newServicio
+            )
             viewModelScope.launch {
                 val success = profileRepository.updateProfile(updated)
                 if (success) {
-                    _userMessage.value = "Datos de contacto actualizados correctamente"
+                    _userMessage.value = "Información personal y de servicio actualizada correctamente"
                 }
             }
         }

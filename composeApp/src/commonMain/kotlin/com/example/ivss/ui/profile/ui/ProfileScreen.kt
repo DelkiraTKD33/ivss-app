@@ -1,6 +1,7 @@
 package com.example.ivss.ui.profile.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,6 +13,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -96,6 +101,9 @@ fun ProfileContent(viewModel: ProfileViewModel) {
                 }
                 is ProfileUiState.Success -> {
                     val user = state.user
+                    val cargoDisplay = user.cargo.ifBlank { "CONTRATADO" }
+                    val numCargoDisplay = if (user.numeroCargo.isBlank() || user.numeroCargo == "0" || user.numeroCargo == "0.0") "CONTRATADO" else user.numeroCargo
+
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -104,57 +112,47 @@ fun ProfileContent(viewModel: ProfileViewModel) {
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Tarjeta Encabezado del Usuario
+                        // Tarjeta Encabezado del Usuario (Badge de servicio solo si posee)
                         ProfileHeaderCard(user = user)
 
-                        // Información Personal
+                        // Información Personal en blanco por defecto con Lápiz para Editar/Rellenar
                         ProfileSectionCard(
                             title = "Información Personal",
                             items = listOf(
                                 ProfileInfoItem("Correo Electrónico", user.email),
                                 ProfileInfoItem("Teléfono", user.phone),
-                                ProfileInfoItem("Fecha de Nacimiento", user.birthDate)
-                            )
+                                ProfileInfoItem("Fecha de Nacimiento", user.birthDate),
+                                ProfileInfoItem("Servicio / Departamento", user.servicio)
+                            ),
+                            onEditClick = { showEditDialog = true }
                         )
 
-                        // Información del IVSS
+                        // Información del Cargo (Solo datos del cargo)
                         ProfileSectionCard(
-                            title = "Datos de Afiliación IVSS",
+                            title = "Información del Cargo",
                             items = listOf(
-                                ProfileInfoItem("Nº de Afiliación / Cuenta", user.affiliationNumber),
-                                ProfileInfoItem("Patrono / Empresa", user.employer),
-                                ProfileInfoItem("Semanas Cotizadas", "${user.weeksContributed} semanas")
+                                ProfileInfoItem("Cargo del Trabajador", cargoDisplay),
+                                ProfileInfoItem("Nº de Cargo", numCargoDisplay),
+                                ProfileInfoItem("Fecha de Ingreso", user.fechaIngreso.ifBlank { "01/11/2019" }),
+                                ProfileInfoItem("Patrono / Empresa", user.employer)
                             )
                         )
 
-                        // Botones de Acción
-                        Column(
+                        // Botón de Acción para Descarga de Constancia
+                        OutlinedButton(
+                            onClick = { viewModel.downloadConstancia() },
+                            enabled = !isDownloading,
                             modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            shape = RoundedCornerShape(12.dp)
                         ) {
-                            Button(
-                                onClick = { showEditDialog = true },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text("Editar Datos de Contacto", fontWeight = FontWeight.Bold)
-                            }
-
-                            OutlinedButton(
-                                onClick = { viewModel.downloadConstancia() },
-                                enabled = !isDownloading,
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                if (isDownloading) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(20.dp),
-                                        strokeWidth = 2.dp,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                } else {
-                                    Text("Descargar Constancia de Cotizaciones")
-                                }
+                            if (isDownloading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            } else {
+                                Text("Descargar Constancia de Cotizaciones")
                             }
                         }
 
@@ -165,8 +163,8 @@ fun ProfileContent(viewModel: ProfileViewModel) {
                         EditProfileDialog(
                             user = user,
                             onDismiss = { showEditDialog = false },
-                            onConfirm = { phone, email ->
-                                viewModel.updateProfileInfo(phone, email)
+                            onConfirm = { phone, email, birthDate, servicio ->
+                                viewModel.updateProfileInfo(phone, email, birthDate, servicio)
                                 showEditDialog = false
                             }
                         )
@@ -192,7 +190,6 @@ fun ProfileHeaderCard(user: UserProfile) {
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Avatar Plano Limpio sin degradado ni borde blanco
             Surface(
                 modifier = Modifier.size(80.dp),
                 shape = CircleShape,
@@ -231,22 +228,23 @@ fun ProfileHeaderCard(user: UserProfile) {
                 )
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Chip de Estado
-            Surface(
-                color = Color(0xFFE8F5E9),
-                border = BorderStroke(1.dp, Color(0xFFA5D6A7)),
-                shape = RoundedCornerShape(20.dp)
-            ) {
-                Text(
-                    text = user.status,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        color = Color(0xFF2E7D32),
-                        fontWeight = FontWeight.Bold
+            // Badge del Servicio del Trabajador (solo visible si posee servicio asignado)
+            if (user.servicio.isNotBlank()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Surface(
+                    color = Color(0xFFE8F5E9),
+                    border = BorderStroke(1.dp, Color(0xFFA5D6A7)),
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Text(
+                        text = user.servicio,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 5.dp),
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            color = Color(0xFF2E7D32),
+                            fontWeight = FontWeight.Bold
+                        )
                     )
-                )
+                }
             }
         }
     }
@@ -257,7 +255,8 @@ data class ProfileInfoItem(val label: String, val value: String)
 @Composable
 fun ProfileSectionCard(
     title: String,
-    items: List<ProfileInfoItem>
+    items: List<ProfileInfoItem>,
+    onEditClick: (() -> Unit)? = null
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -272,14 +271,45 @@ fun ProfileSectionCard(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.primary
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 )
-            )
+
+                if (onEditClick != null) {
+                    IconButton(
+                        onClick = onEditClick,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Canvas(modifier = Modifier.size(16.dp)) {
+                            val strokeWidth = 2.dp.toPx()
+                            val color = Color(0xFFD32F2F)
+                            val path = Path().apply {
+                                moveTo(size.width * 0.7f, 0f)
+                                lineTo(size.width, size.height * 0.3f)
+                                lineTo(size.width * 0.3f, size.height)
+                                lineTo(0f, size.height)
+                                lineTo(0f, size.height * 0.7f)
+                                close()
+                            }
+                            drawPath(
+                                path = path,
+                                color = color,
+                                style = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
+                            )
+                        }
+                    }
+                }
+            }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
@@ -296,7 +326,7 @@ fun ProfileSectionCard(
                         text = item.value,
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            color = if (item.value.isBlank()) Color.Gray else MaterialTheme.colorScheme.onSurface,
                             fontSize = 14.sp
                         )
                     )
@@ -310,28 +340,50 @@ fun ProfileSectionCard(
 fun EditProfileDialog(
     user: UserProfile,
     onDismiss: () -> Unit,
-    onConfirm: (phone: String, email: String) -> Unit
+    onConfirm: (phone: String, email: String, birthDate: String, servicio: String) -> Unit
 ) {
-    var phone by remember { mutableStateOf(user.phone) }
     var email by remember { mutableStateOf(user.email) }
+    var phone by remember { mutableStateOf(user.phone) }
+    var birthDate by remember { mutableStateOf(user.birthDate) }
+    var servicio by remember { mutableStateOf(user.servicio) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Editar Datos de Contacto", fontWeight = FontWeight.Bold) },
+        title = { Text("Editar Información Personal", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
-                    value = phone,
-                    onValueChange = { phone = it },
-                    label = { Text("Teléfono") },
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Correo Electrónico") },
+                    placeholder = { Text("Ej: usuario@correo.com") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    label = { Text("Correo Electrónico") },
+                    value = phone,
+                    onValueChange = { phone = it },
+                    label = { Text("Teléfono de Contacto") },
+                    placeholder = { Text("Ej: +58 412-1234567") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = birthDate,
+                    onValueChange = { birthDate = it },
+                    label = { Text("Fecha de Nacimiento") },
+                    placeholder = { Text("Ej: 15/05/1985") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = servicio,
+                    onValueChange = { servicio = it },
+                    label = { Text("Servicio / Departamento") },
+                    placeholder = { Text("Ej: CIRUGIA, DIRECCION, RRHH") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -339,8 +391,8 @@ fun EditProfileDialog(
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(phone, email) },
-                enabled = phone.isNotBlank() && email.isNotBlank()
+                onClick = { onConfirm(phone, email, birthDate, servicio) },
+                enabled = email.isNotBlank() || phone.isNotBlank() || birthDate.isNotBlank() || servicio.isNotBlank()
             ) {
                 Text("Guardar")
             }

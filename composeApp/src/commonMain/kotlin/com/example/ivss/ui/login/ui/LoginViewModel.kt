@@ -10,6 +10,7 @@ import com.example.ivss.domain.model.UserProfile
 import com.example.ivss.domain.repository.ProfileRepository
 import com.example.ivss.domain.repository.SettingsRepository
 import com.example.ivss.domain.repository.UserPreferences
+import com.example.ivss.platform.NativeEmployeeRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -95,15 +96,16 @@ class LoginViewModel(
             return
         }
 
-        // 2. Reconocimiento local por Cédula (Cédula / Cédula)
+        // 2. Reconocimiento local dinámico por Cédula (Cédula / Cédula) consultando la Base de Datos Excel
         val cleanCedula = inputUser.replace("V-", "").replace("v-", "").replace(".", "").replace("-", "").trim()
         val cleanPass = inputPass.replace("V-", "").replace("v-", "").replace(".", "").replace("-", "").trim()
 
         if (cleanCedula.length >= 6 && (cleanPass == cleanCedula || inputPass == inputUser)) {
+            val dbProfile = NativeEmployeeRepository.findEmployeeByCedula(inputUser)
             val formattedCedula = "V-$cleanCedula"
-            val employeeProfile = UserProfile(
+            val fallbackProfile = dbProfile ?: UserProfile(
                 id = "USR-$cleanCedula",
-                fullName = if (cleanCedula == "17062973") "HERNANDEZ RON JENNIFFER" else "Juan Carlos Pérez Rodríguez",
+                fullName = "Trabajador IVSS",
                 nationalId = formattedCedula,
                 email = "$cleanCedula@ivss.gob.ve",
                 phone = "+58 412-9876543",
@@ -134,10 +136,10 @@ class LoginViewModel(
                             )
                         )
                     } else {
-                        profileRepository.updateProfile(employeeProfile)
+                        profileRepository.updateProfile(fallbackProfile)
                     }
                 } catch (e: Exception) {
-                    profileRepository.updateProfile(employeeProfile)
+                    profileRepository.updateProfile(fallbackProfile)
                 }
                 _isLoading.value = false
                 _loginError.value = null
