@@ -8,8 +8,10 @@ import com.example.ivss.data.remote.IvssApiClient
 import com.example.ivss.data.repository.ProfileRepositoryImpl
 import com.example.ivss.domain.model.UserProfile
 import com.example.ivss.domain.repository.ProfileRepository
+import com.example.ivss.platform.AdminVacationItem
 import com.example.ivss.platform.FileSaver
 import com.example.ivss.platform.NativeDocxGenerator
+import com.example.ivss.platform.NativeEmployeeRepository
 import com.example.ivss.platform.NativePdfGenerator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -61,12 +63,16 @@ class VacationsViewModel(
 
     private val _vacations = mutableStateOf(
         listOf(
-            VacationItem(id = 1, name = "Vacaciones Período 2024 - 2025", status = "Aprobada", usedDays = 15, totalDays = 15, documentType = DocumentType.WORD),
+            VacationItem(id = 1, name = "Vacaciones Período 2024 - 2025", status = "En espera", usedDays = 0, totalDays = 15, documentType = DocumentType.WORD),
             VacationItem(id = 2, name = "Vacaciones Período 2023 - 2024", status = "Aprobada", usedDays = 15, totalDays = 15, documentType = DocumentType.WORD),
-            VacationItem(id = 3, name = "Adelanto Vacacional 2021 - 2022", status = "En espera", usedDays = 10, totalDays = 15, documentType = DocumentType.WORD)
+            VacationItem(id = 3, name = "Vacaciones Período 2022 - 2023", status = "Aprobada", usedDays = 15, totalDays = 15, documentType = DocumentType.WORD),
+            VacationItem(id = 4, name = "Adelanto Vacacional 2021 - 2022", status = "Aprobada", usedDays = 15, totalDays = 15, documentType = DocumentType.WORD)
         )
     )
     val vacations: State<List<VacationItem>> = _vacations
+
+    private val _adminVacations = mutableStateOf<List<AdminVacationItem>>(emptyList())
+    val adminVacations: State<List<AdminVacationItem>> = _adminVacations
 
     private val _showAddDialog = mutableStateOf(value = false)
     val showAddDialog: State<Boolean> = _showAddDialog
@@ -79,6 +85,16 @@ class VacationsViewModel(
 
     private val _downloadMessage = MutableStateFlow<String?>(null)
     val downloadMessage: StateFlow<String?> = _downloadMessage.asStateFlow()
+
+    init {
+        loadAdminVacations()
+    }
+
+    fun loadAdminVacations() {
+        viewModelScope.launch {
+            _adminVacations.value = NativeEmployeeRepository.readAllVacationsForAdmin()
+        }
+    }
 
     fun onAddVacationClick() {
         _showAddDialog.value = true
