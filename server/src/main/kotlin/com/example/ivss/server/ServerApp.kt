@@ -3,6 +3,7 @@ package com.example.ivss.server
 import com.example.ivss.server.db.DocumentosTable
 import com.example.ivss.server.db.EmpleadosTable
 import com.example.ivss.server.db.UsuariosTable
+import com.example.ivss.server.db.VacacionesTable
 import com.example.ivss.server.model.DatosConstancia
 import com.example.ivss.server.plugins.configureSecurity
 import com.example.ivss.server.plugins.seedSuperUsuario
@@ -136,13 +137,13 @@ fun main() {
 }
 
 fun Application.ivssServerModule() {
-    // Inicializar Base de Datos SQLite con Exposed ORM y tablas de Empleados, Usuarios y Documentos
+    // Inicializar Base de Datos SQLite con Exposed ORM y tablas de Empleados, Usuarios, Documentos y Vacaciones
     try {
         Database.connect("jdbc:sqlite:ivss_database.db", "org.sqlite.JDBC")
         transaction {
-            SchemaUtils.create(EmpleadosTable, UsuariosTable, DocumentosTable)
+            SchemaUtils.create(EmpleadosTable, UsuariosTable, DocumentosTable, VacacionesTable)
         }
-        println("Base de Datos SQLite, Usuarios y Sistema de Almacenamiento de Documentos inicializado")
+        println("Base de Datos SQLite, Usuarios, Vacaciones y Sistema de Almacenamiento de Documentos inicializado")
     } catch (e: Exception) {
         println("Aviso al inicializar Base de Datos: ${e.message}")
     }
@@ -150,7 +151,7 @@ fun Application.ivssServerModule() {
     // Configurar Seguridad JWT y Autenticación
     configureSecurity()
 
-    // Inicializar Super Usuario por defecto
+    // Inicializar Super Usuario y Nómina por defecto
     seedSuperUsuario()
 
     install(ContentNegotiation) {
@@ -172,7 +173,7 @@ fun Application.ivssServerModule() {
         anyHost()
     }
 
-    // Datos en memoria
+    // Datos en memoria de respaldo
     var currentUserProfile = UserProfileDto(
         id = "USR-100293",
         fullName = "Juan Carlos Pérez Rodríguez",
@@ -187,9 +188,10 @@ fun Application.ivssServerModule() {
     )
 
     val vacationsList = ConcurrentHashMap<Int, VacationDto>().apply {
-        put(1, VacationDto(1, "Vacaciones Período 2024 - 2025", "Aprobada", 15, 15, "WORD", "Forma_12-16_Vacaciones_2024.docx"))
-        put(2, VacationDto(2, "Vacaciones Período 2023 - 2024", "Aprobada", 15, 15, "WORD", "Forma_12-16_Vacaciones_2023.docx"))
-        put(3, VacationDto(3, "Adelanto Vacacional 2021 - 2022", "En espera", 10, 15, "WORD", "Forma_12-16_Adelanto_2025.docx"))
+        put(1, VacationDto(1, "Vacaciones Período 2024 - 2025", "En espera", 0, 15, "WORD", "Forma_12-16_Vacaciones_2024_2025.docx"))
+        put(2, VacationDto(2, "Vacaciones Período 2023 - 2024", "Aprobada", 15, 15, "WORD", "Forma_12-16_Vacaciones_2023_2024.docx"))
+        put(3, VacationDto(3, "Vacaciones Período 2022 - 2023", "Aprobada", 15, 15, "WORD", "Forma_12-16_Vacaciones_2022_2023.docx"))
+        put(4, VacationDto(4, "Adelanto Vacacional 2021 - 2022", "Aprobada", 15, 15, "WORD", "Forma_12-16_Vacaciones_2021_2022.docx"))
     }
 
     var currentPasswordHash = "12345678"
@@ -202,7 +204,7 @@ fun Application.ivssServerModule() {
 
         // Health Check
         get("/api/health") {
-            call.respond(mapOf("status" to "OK", "service" to "IVSS Ktor Backend Server 8.0 (Sincronización Total SQLite)"))
+            call.respond(mapOf("status" to "OK", "service" to "IVSS Ktor Backend Server 9.0 (Cálculo de Vacaciones Disfrutadas y Pendientes por Antigüedad)"))
         }
 
         // Importación de Nómina Excel IVSS (.xlsx / .xls)
@@ -220,7 +222,7 @@ fun Application.ivssServerModule() {
             call.respond(
                 ApiResponse(
                     success = true,
-                    message = "Importación completada. Empleados e Inicios de Sesión creados: $insertados",
+                    message = "Importación completada. Empleados, Inicios de Sesión y Registro de Vacaciones creados: $insertados",
                     data = mapOf("insertados" to insertados)
                 )
             )
@@ -403,14 +405,30 @@ fun Application.ivssServerModule() {
             )
         }
 
-        // Solicitudes de Vacaciones
+        // Solicitudes y Registro de Vacaciones (Disfrutadas y Pendientes de la Base de Datos)
         get("/api/vacations") {
-            val sortedList = vacationsList.values.toList().sortedBy { it.id }
+            val userCedula = currentUserProfile.nationalId
+            val listFromDb = transaction {
+                VacacionesTable.selectAll().where { VacacionesTable.cedula eq userCedula }.map {
+                    VacationDto(
+                        id = it[VacacionesTable.id].value,
+                        name = it[VacacionesTable.nombrePeriodo],
+                        status = it[VacacionesTable.estado],
+                        usedDays = it[VacacionesTable.diasUsados],
+                        totalDays = it[VacacionesTable.diasTotales],
+                        documentType = it[VacacionesTable.tipoDocumento],
+                        fileName = it[VacacionesTable.nombreArchivo]
+                    )
+                }
+            }
+
+            val finalVacations = if (listFromDb.isNotEmpty()) listFromDb else vacationsList.values.toList().sortedBy { it.id }
+
             call.respond(
                 ApiResponse(
                     success = true,
-                    message = "Vacaciones obtenidas",
-                    data = sortedList
+                    message = "Vacaciones del trabajador obtenidas de la base de datos",
+                    data = finalVacations
                 )
             )
         }
@@ -460,7 +478,7 @@ fun Application.ivssServerModule() {
                     numeroDias = vacation.usedDays,
                     fechaReintegro = "2025-11-18",
                     observaciones = "Solicitud aprobada y registrada en el sistema IVSS.",
-                    nota = "EL TRABAJADOR SOLICITÓ DICHAS VACACIONES (${vacation.name.uppercase()}) CORRESPONDIENTES AL PERIODO 2023-2024 CON EXPOSICIÓN DE MOTIVO.",
+                    nota = "EL TRABAJADOR SOLICITÓ DICHAS VACACIONES (${vacation.name.uppercase()}) CORRESPONDIENTES AL PERIODO CON EXPOSICIÓN DE MOTIVO.",
                     supervisorInmediato = "DR. WILLIAMS GONZALEZ",
                     coordinadorRRHH = "LCDA. MAYARI SOJO",
                     maximaAutoridad = "DR. JULIO AQUINO"
@@ -497,7 +515,7 @@ fun Application.ivssServerModule() {
                     numeroDias = vacation.usedDays,
                     fechaReintegro = "2025-11-18",
                     observaciones = "Solicitud aprobada y registrada en el sistema IVSS.",
-                    nota = "EL TRABAJADOR SOLICITÓ DICHAS VACACIONES (${vacation.name.uppercase()}) CORRESPONDIENTES AL PERIODO 2023-2024 CON EXPOSICIÓN DE MOTIVO.",
+                    nota = "EL TRABAJADOR SOLICITÓ DICHAS VACACIONES (${vacation.name.uppercase()}) CORRESPONDIENTES AL PERIODO CON EXPOSICIÓN DE MOTIVO.",
                     supervisorInmediato = "DR. WILLIAMS GONZALEZ",
                     coordinadorRRHH = "LCDA. MAYARI SOJO",
                     maximaAutoridad = "DR. JULIO AQUINO"
