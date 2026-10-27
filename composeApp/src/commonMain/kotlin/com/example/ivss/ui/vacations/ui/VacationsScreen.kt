@@ -59,6 +59,7 @@ fun VacationsContent(viewModel: VacationsViewModel) {
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilterTab by remember { mutableStateOf("TODAS") }
+    var showUploadVacationExcelDialog by remember { mutableStateOf(false) }
 
     val filteredAdminVacations = remember(adminVacations, searchQuery, selectedFilterTab) {
         adminVacations.filter { item ->
@@ -164,6 +165,28 @@ fun VacationsContent(viewModel: VacationsViewModel) {
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                             )
+                        }
+                    }
+
+                    // Botones de Gestión de Base de Datos Excel para Admin
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = { showUploadVacationExcelDialog = true },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Cargar BD Vacaciones Excel", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        OutlinedButton(
+                            onClick = { viewModel.exportVacationExcelDatabase() },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Descargar BD Vacaciones Excel", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
@@ -275,6 +298,61 @@ fun VacationsContent(viewModel: VacationsViewModel) {
             onConfirm = { name, days, docType -> viewModel.addVacation(name, days, docType) }
         )
     }
+
+    if (showUploadVacationExcelDialog) {
+        UploadVacationExcelDialog(
+            onDismiss = { showUploadVacationExcelDialog = false },
+            onConfirmUpload = { fileName ->
+                viewModel.importVacationExcelDatabase(fileName)
+                showUploadVacationExcelDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+fun UploadVacationExcelDialog(
+    onDismiss: () -> Unit,
+    onConfirmUpload: (fileName: String) -> Unit
+) {
+    var selectedFileName by remember { mutableStateOf("RELACION_VACACIONES_RRHH_ACTUAL.xlsx") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Cargar Base de Datos de Vacaciones", fontWeight = FontWeight.Bold)
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "Selecciona un archivo Excel (.xlsx / .xls) con la relación de vacaciones disfrutadas del personal.",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                OutlinedTextField(
+                    value = selectedFileName,
+                    onValueChange = { selectedFileName = it },
+                    label = { Text("Nombre del archivo Excel de Vacaciones") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirmUpload(selectedFileName) },
+                enabled = selectedFileName.isNotBlank()
+            ) {
+                Text("Actualizar Base de Datos")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar")
+            }
+        }
+    )
 }
 
 @Composable
