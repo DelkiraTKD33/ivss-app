@@ -33,8 +33,12 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.example.ivss.platform.AdminVacationItem
+import com.example.ivss.platform.FilePicker
 import com.example.ivss.platform.toImageBitmap
 import com.example.ivss.ui.components.BackButton
+import ivss.composeapp.generated.resources.Res
+import ivss.composeapp.generated.resources.opcion
+import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.viewmodel.koinViewModel
 
 class VacationsScreen : Screen {
@@ -59,6 +63,8 @@ fun VacationsContent(viewModel: VacationsViewModel) {
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilterTab by remember { mutableStateOf("TODAS") }
+
+    var showAdminMenu by remember { mutableStateOf(false) }
     var showUploadVacationExcelDialog by remember { mutableStateOf(false) }
 
     val filteredAdminVacations = remember(adminVacations, searchQuery, selectedFilterTab) {
@@ -92,10 +98,52 @@ fun VacationsContent(viewModel: VacationsViewModel) {
                 navigationIcon = {
                     BackButton(onClick = { navigator.pop() })
                 },
+                actions = {
+                    if (userProfile?.canViewEmployeeList == true) {
+                        Box {
+                            IconButton(onClick = { showAdminMenu = true }) {
+                                Icon(
+                                    painter = painterResource(Res.drawable.opcion),
+                                    contentDescription = "Menú Base de Datos Vacaciones",
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+
+                            DropdownMenu(
+                                expanded = showAdminMenu,
+                                onDismissRequest = { showAdminMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text("📥 Descargar BD Vacaciones (.xlsx)", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    },
+                                    onClick = {
+                                        showAdminMenu = false
+                                        viewModel.exportVacationExcelDatabase()
+                                    }
+                                )
+
+                                HorizontalDivider()
+
+                                DropdownMenuItem(
+                                    text = {
+                                        Text("📤 Actualizar BD Vacaciones (.xlsx)", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    },
+                                    onClick = {
+                                        showAdminMenu = false
+                                        showUploadVacationExcelDialog = true
+                                    }
+                                )
+                            }
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                    actionIconContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             )
         },
@@ -165,28 +213,6 @@ fun VacationsContent(viewModel: VacationsViewModel) {
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                             )
-                        }
-                    }
-
-                    // Botones de Gestión de Base de Datos Excel para Admin
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = { showUploadVacationExcelDialog = true },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Text("Cargar BD Vacaciones Excel", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
-
-                        OutlinedButton(
-                            onClick = { viewModel.exportVacationExcelDatabase() },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Text("Descargar BD Vacaciones Excel", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
@@ -315,12 +341,13 @@ fun UploadVacationExcelDialog(
     onDismiss: () -> Unit,
     onConfirmUpload: (fileName: String) -> Unit
 ) {
-    var selectedFileName by remember { mutableStateOf("RELACION_VACACIONES_RRHH_ACTUAL.xlsx") }
+    var selectedFileName by remember { mutableStateOf("") }
+    val filePicker = remember { FilePicker() }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text("Cargar Base de Datos de Vacaciones", fontWeight = FontWeight.Bold)
+            Text("Actualizar Base de Datos de Vacaciones", fontWeight = FontWeight.Bold, fontSize = 17.sp)
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -330,13 +357,28 @@ fun UploadVacationExcelDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                OutlinedTextField(
-                    value = selectedFileName,
-                    onValueChange = { selectedFileName = it },
-                    label = { Text("Nombre del archivo Excel de Vacaciones") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                // Botón Minimalista para Buscar Archivo en Dispositivo mediante el Explorador Nativo
+                OutlinedButton(
+                    onClick = {
+                        filePicker.selectExcelFile { name ->
+                            selectedFileName = name
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("🔍 Buscar Archivo en Dispositivo", fontWeight = FontWeight.Bold)
+                }
+
+                if (selectedFileName.isNotBlank()) {
+                    OutlinedTextField(
+                        value = selectedFileName,
+                        onValueChange = { selectedFileName = it },
+                        label = { Text("Archivo Seleccionado") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         },
         confirmButton = {
