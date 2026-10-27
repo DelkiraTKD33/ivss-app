@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.example.ivss.platform.AdminVacationItem
 import com.example.ivss.platform.toImageBitmap
 import com.example.ivss.ui.components.BackButton
 import org.koin.compose.viewmodel.koinViewModel
@@ -48,11 +49,33 @@ class VacationsScreen : Screen {
 @Composable
 fun VacationsContent(viewModel: VacationsViewModel) {
     val navigator = LocalNavigator.currentOrThrow
+    val userProfile by viewModel.userProfile.collectAsState()
     val vacations by viewModel.vacations
+    val adminVacations by viewModel.adminVacations
     val showAddDialog by viewModel.showAddDialog
     val downloadMessage by viewModel.downloadMessage.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
+
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedFilterTab by remember { mutableStateOf("TODAS") }
+
+    val filteredAdminVacations = remember(adminVacations, searchQuery, selectedFilterTab) {
+        adminVacations.filter { item ->
+            val matchesSearch = searchQuery.isBlank() ||
+                    item.workerName.contains(searchQuery, ignoreCase = true) ||
+                    item.workerCedula.contains(searchQuery, ignoreCase = true) ||
+                    item.periodName.contains(searchQuery, ignoreCase = true)
+
+            val matchesTab = when (selectedFilterTab) {
+                "EN DISFRUTE" -> item.status.equals("Aprobada", ignoreCase = true)
+                "PENDIENTES" -> !item.status.equals("Aprobada", ignoreCase = true)
+                else -> true
+            }
+
+            matchesSearch && matchesTab
+        }
+    }
 
     LaunchedEffect(downloadMessage) {
         downloadMessage?.let { msg ->
@@ -64,7 +87,7 @@ fun VacationsContent(viewModel: VacationsViewModel) {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Mis Vacaciones", fontWeight = FontWeight.Bold) },
+                title = { Text(if (userProfile?.canViewEmployeeList == true) "Control de Vacaciones" else "Mis Vacaciones", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     BackButton(onClick = { navigator.pop() })
                 },
@@ -77,28 +100,30 @@ fun VacationsContent(viewModel: VacationsViewModel) {
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { viewModel.onAddVacationClick() },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            ) {
-                Canvas(modifier = Modifier.size(20.dp)) {
-                    val strokeWidth = 2.5.dp.toPx()
-                    val iconColor = Color.White
-                    drawLine(
-                        color = iconColor,
-                        start = Offset(0f, size.height / 2),
-                        end = Offset(size.width, size.height / 2),
-                        strokeWidth = strokeWidth,
-                        cap = StrokeCap.Round
-                    )
-                    drawLine(
-                        color = iconColor,
-                        start = Offset(size.width / 2, 0f),
-                        end = Offset(size.width / 2, size.height),
-                        strokeWidth = strokeWidth,
-                        cap = StrokeCap.Round
-                    )
+            if (userProfile?.canViewEmployeeList != true) {
+                FloatingActionButton(
+                    onClick = { viewModel.onAddVacationClick() },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ) {
+                    Canvas(modifier = Modifier.size(20.dp)) {
+                        val strokeWidth = 2.5.dp.toPx()
+                        val iconColor = Color.White
+                        drawLine(
+                            color = iconColor,
+                            start = Offset(0f, size.height / 2),
+                            end = Offset(size.width, size.height / 2),
+                            strokeWidth = strokeWidth,
+                            cap = StrokeCap.Round
+                        )
+                        drawLine(
+                            color = iconColor,
+                            start = Offset(size.width / 2, 0f),
+                            end = Offset(size.width / 2, size.height),
+                            strokeWidth = strokeWidth,
+                            cap = StrokeCap.Round
+                        )
+                    }
                 }
             }
         }
@@ -107,35 +132,137 @@ fun VacationsContent(viewModel: VacationsViewModel) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(MaterialTheme.colorScheme.background)
+                .background(MaterialTheme.colorScheme.background),
+            contentAlignment = Alignment.TopCenter
         ) {
-            if (vacations.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "No tienes solicitudes de vacaciones",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
+            if (userProfile?.canViewEmployeeList == true) {
+                // VISTA DE CONTROL DE VACACIONES PARA ADMIN / SUPER USUARIO / RRHH / DIRECTOR
+                Column(
+                    modifier = Modifier
+                        .widthIn(max = 750.dp)
+                        .fillMaxSize()
+                        .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(
-                        items = vacations,
-                        key = { it.id }
-                    ) { vacation ->
-                        VacationCard(
-                            vacation = vacation,
-                            viewModel = viewModel,
-                            onCardClick = { navigator.push(DocumentDetailScreen(vacation = vacation)) },
-                            onDownloadClick = { viewModel.downloadPdfDocument(vacation) }
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "Control General de Vacaciones del Personal",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                text = "Monitoreo de trabajadores en disfrute y períodos pendientes",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        label = { Text("Buscar por Nombre, Cédula o Período...") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    // Filtros por Estado (Todas, En Disfrute, Pendientes)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = selectedFilterTab == "TODAS",
+                            onClick = { selectedFilterTab = "TODAS" },
+                            label = { Text("Todas (${adminVacations.size})") },
+                            modifier = Modifier.weight(1f)
                         )
+
+                        FilterChip(
+                            selected = selectedFilterTab == "EN DISFRUTE",
+                            onClick = { selectedFilterTab = "EN DISFRUTE" },
+                            label = { Text("En Disfrute") },
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        FilterChip(
+                            selected = selectedFilterTab == "PENDIENTES",
+                            onClick = { selectedFilterTab = "PENDIENTES" },
+                            label = { Text("Pendientes") },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(filteredAdminVacations) { item ->
+                            AdminVacationCard(
+                                item = item,
+                                onDownloadClick = {
+                                    val vacItem = VacationItem(
+                                        id = item.id,
+                                        name = item.periodName,
+                                        status = item.status,
+                                        usedDays = item.usedDays,
+                                        totalDays = item.totalDays,
+                                        documentType = DocumentType.WORD,
+                                        fileName = item.fileName
+                                    )
+                                    viewModel.downloadPdfDocument(vacItem)
+                                }
+                            )
+                        }
+                    }
+                }
+            } else {
+                // VISTA PERSONAL DEL EMPLEADO REGULAR
+                if (vacations.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No tienes solicitudes de vacaciones",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.TopCenter
+                    ) {
+                        LazyColumn(
+                            modifier = Modifier
+                                .widthIn(max = 700.dp)
+                                .fillMaxSize(),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(
+                                items = vacations,
+                                key = { it.id }
+                            ) { vacation ->
+                                VacationCard(
+                                    vacation = vacation,
+                                    viewModel = viewModel,
+                                    onCardClick = { navigator.push(DocumentDetailScreen(vacation = vacation)) },
+                                    onDownloadClick = { viewModel.downloadPdfDocument(vacation) }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -147,6 +274,135 @@ fun VacationsContent(viewModel: VacationsViewModel) {
             onDismiss = { viewModel.onDismissAddDialog() },
             onConfirm = { name, days, docType -> viewModel.addVacation(name, days, docType) }
         )
+    }
+}
+
+@Composable
+fun AdminVacationCard(
+    item: AdminVacationItem,
+    onDownloadClick: () -> Unit
+) {
+    val isApproved = item.status.equals("Aprobada", ignoreCase = true)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Surface(
+                modifier = Modifier.size(44.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = item.workerName.take(2).uppercase(),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = item.workerName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Text(
+                    text = "Cédula: ${item.workerCedula}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Text(
+                    text = item.periodName,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                Surface(
+                    color = if (isApproved) Color(0xFFE8F5E9) else Color(0xFFFFF8E1),
+                    border = BorderStroke(1.dp, if (isApproved) Color(0xFFA5D6A7) else Color(0xFFFFE082)),
+                    shape = RoundedCornerShape(6.dp)
+                ) {
+                    Text(
+                        text = if (isApproved) "En Disfrute (Aprobada)" else "Pendiente por Disfrutar",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.5.sp,
+                            color = if (isApproved) Color(0xFF2E7D32) else Color(0xFFF57F17)
+                        )
+                    )
+                }
+            }
+
+            Surface(
+                onClick = onDownloadClick,
+                modifier = Modifier.size(36.dp).clip(CircleShape),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary,
+                shadowElevation = 2.dp
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Canvas(modifier = Modifier.size(16.dp)) {
+                        val strokeWidth = 2.dp.toPx()
+                        val iconColor = Color.White
+                        drawLine(
+                            color = iconColor,
+                            start = Offset(size.width / 2, 0f),
+                            end = Offset(size.width / 2, size.height * 0.7f),
+                            strokeWidth = strokeWidth,
+                            cap = StrokeCap.Round
+                        )
+                        drawLine(
+                            color = iconColor,
+                            start = Offset(size.width * 0.2f, size.height * 0.45f),
+                            end = Offset(size.width / 2, size.height * 0.7f),
+                            strokeWidth = strokeWidth,
+                            cap = StrokeCap.Round
+                        )
+                        drawLine(
+                            color = iconColor,
+                            start = Offset(size.width * 0.8f, size.height * 0.45f),
+                            end = Offset(size.width / 2, size.height * 0.7f),
+                            strokeWidth = strokeWidth,
+                            cap = StrokeCap.Round
+                        )
+                        drawLine(
+                            color = iconColor,
+                            start = Offset(0f, size.height),
+                            end = Offset(size.width, size.height),
+                            strokeWidth = strokeWidth,
+                            cap = StrokeCap.Round
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -580,4 +836,290 @@ fun DocumentPreviewThumbnail(
             }
         }
     }
+}
+```
+
+Now let's update `DocumentDetailScreen.kt` to center content with `widthIn(max = 750.dp)`:
+
+Let's read `DocumentDetailScreen.kt` lines 120-150:
+`composeApp/src/commonMain/kotlin/com/example/ivss/ui/vacations/ui/DocumentDetailScreen.kt`
+
+Let's read `DocumentDetailScreen.kt` using `read_file`.   
+`read_file(absolutePath = "C:/Users/Delkira/Downloads/IVSS/composeApp/src/commonMain/kotlin/com/example/ivss/ui/vacations/ui/DocumentDetailScreen.kt")`
+
+Let's read `DocumentDetailScreen.kt`.               
+
+
+Let's read `DocumentDetailScreen.kt` using `read_file`.   
+
+
+           
+
+
+                        
+                       
+
+                    
+
+                    
+
+                    
+
+                    
+
+                    
+
+                   
+
+                    
+
+                    
+
+                    
+
+                   
+
+                    
+
+                    
+
+                    
+
+                    
+
+                
+                
+            
+        
+    
+
+    
+        
+            
+            
+        
+    
+
+    
+        
+            
+            
+        
+    
+
+
+
+    
+        
+        
+        
+        
+    
+        
+            
+            
+                
+            
+            
+
+            
+
+            
+        
+    
+
+
+    
+    
+    
+    
+    
+    
+        
+            
+            
+        
+        
+            
+            
+                
+                    
+                    
+                    
+                    
+                    
+                
+            
+            
+                
+                    
+                    
+                    
+                    
+                
+                
+                    
+                    
+                    
+                
+            
+        
+        
+            
+            
+            
+            
+        
+    
+
+
+    
+    
+    
+    
+    
+    
+        
+            
+            
+
+        
+            
+            
+                
+                    
+                    
+                    
+                    
+                
+                
+                    
+                    
+                    
+                
+            
+        
+
+        
+            
+            
+            
+            
+                
+                
+            
+        
+    
+
+
+    
+    
+    
+    
+    
+    var currentPassword by remember { mutableStateOf("") }
+    var newPassword by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var localError by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Cambiar Contraseña", fontWeight = FontWeight.Bold)
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (state is ChangePasswordState.Success) {
+                    Text(
+                        text = state.message,
+                        color = Color(0xFF2E7D32),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = currentPassword,
+                        onValueChange = { currentPassword = it },
+                        label = { Text("Contraseña Actual") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = newPassword,
+                        onValueChange = { newPassword = it },
+                        label = { Text("Nueva Contraseña") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = confirmPassword,
+                        onValueChange = { confirmPassword = it },
+                        label = { Text("Confirmar Nueva Contraseña") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    if (localError != null) {
+                        Text(
+                            text = localError!!,
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 12.sp
+                        )
+                    }
+
+                    if (state is ChangePasswordState.Error) {
+                        Text(
+                            text = state.error,
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (state is ChangePasswordState.Success) {
+                Button(onClick = onDismiss) {
+                    Text("Aceptar")
+                }
+            } else {
+                Button(
+                    onClick = {
+                        if (newPassword != confirmPassword) {
+                            localError = "Las contraseñas no coinciden."
+                        } else {
+                            localError = null
+                            onConfirm(currentPassword, newPassword)
+                        }
+                    },
+                    enabled = currentPassword.isNotBlank() && newPassword.isNotBlank() && confirmPassword.isNotBlank() && state !is ChangePasswordState.Loading
+                ) {
+                    if (state is ChangePasswordState.Loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text("Actualizar")
+                    }
+                }
+            }
+        },
+        dismissButton = {
+            if (state !is ChangePasswordState.Success) {
+                TextButton(onClick = onDismiss) {
+                    Text("Cancelar")
+                }
+            }
+        }
+    )
 }

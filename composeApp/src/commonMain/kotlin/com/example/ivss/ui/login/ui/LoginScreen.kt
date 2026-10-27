@@ -1,6 +1,7 @@
 package com.example.ivss.ui.login.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -39,68 +40,76 @@ fun LoginScreenContent(viewModel: LoginViewModel) {
     val showBiometricDialog by viewModel.showBiometricDialog
     val biometricState by viewModel.biometricState
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .background(MaterialTheme.colorScheme.background),
+        contentAlignment = Alignment.Center
     ) {
-        AuthLogo()
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        AuthTitleGroup(
-            title = "Bienvenido",
-            subtitle = "Inicia sesión para continuar"
-        )
-        
-        Spacer(modifier = Modifier.height(24.dp))
+        Column(
+            modifier = Modifier
+                .widthIn(max = 440.dp)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            AuthLogo()
+            Spacer(modifier = Modifier.height(28.dp))
+            
+            AuthTitleGroup(
+                title = "Bienvenido",
+                subtitle = "Inicia sesión para continuar"
+            )
+            
+            Spacer(modifier = Modifier.height(24.dp))
 
-        LoginForm(
-            viewModel = viewModel,
-            onForgotPasswordClick = { navigator.push(ForgotPasswordScreen()) },
-            onLoginClick = {
-                viewModel.performLogin(
-                    onSuccess = { navigator.replaceAll(HomeScreen()) },
-                    onError = { }
-                )
-            }
-        )
-
-        // Botón de Inicio con Huella / Biometría
-        if (preferences.biometricsEnabled) {
-            Spacer(modifier = Modifier.height(16.dp))
-            OutlinedButton(
-                onClick = { viewModel.onOpenBiometricDialog() },
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-                shape = MaterialTheme.shapes.large,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
-            ) {
-                Icon(
-                    painter = painterResource(Res.drawable.usuario),
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Iniciar sesión con huella",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+            LoginForm(
+                viewModel = viewModel,
+                onForgotPasswordClick = { navigator.push(ForgotPasswordScreen()) },
+                onLoginClick = {
+                    viewModel.performLogin(
+                        onSuccess = { navigator.replaceAll(HomeScreen()) },
+                        onError = { }
                     )
-                )
+                }
+            )
+
+            // Botón de Inicio con Huella / Biometría
+            if (preferences.biometricsEnabled) {
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedButton(
+                    onClick = { viewModel.onOpenBiometricDialog() },
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    shape = MaterialTheme.shapes.large,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                ) {
+                    Icon(
+                        painter = painterResource(Res.drawable.usuario),
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Iniciar sesión con huella",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                }
             }
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            AuthFooterAction(
+                instruction = "¿No tienes una cuenta? ",
+                actionText = "Regístrate aquí",
+                onActionClick = { navigator.push(RegisterScreen()) }
+            )
         }
-
-        Spacer(modifier = Modifier.height(28.dp))
-
-        AuthFooterAction(
-            instruction = "¿No tienes una cuenta? ",
-            actionText = "Regístrate aquí",
-            onActionClick = { navigator.push(RegisterScreen()) }
-        )
     }
 
     if (showBiometricDialog) {

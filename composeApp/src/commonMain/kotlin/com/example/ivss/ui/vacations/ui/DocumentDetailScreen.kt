@@ -146,10 +146,12 @@ fun DocumentDetailContent(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(MaterialTheme.colorScheme.background)
+                .background(MaterialTheme.colorScheme.background),
+            contentAlignment = Alignment.TopCenter
         ) {
             Column(
                 modifier = Modifier
+                    .widthIn(max = 750.dp)
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(12.dp),

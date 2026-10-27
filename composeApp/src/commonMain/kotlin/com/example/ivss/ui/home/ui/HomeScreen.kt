@@ -191,12 +191,14 @@ fun HomeScreenContent(viewModel: HomeViewModel) {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .background(MaterialTheme.colorScheme.background)
+                    .background(MaterialTheme.colorScheme.background),
+                contentAlignment = Alignment.TopCenter
             ) {
                 if (userProfile?.canViewEmployeeList == true) {
                     // VISTA DIRECTORIO DE TRABAJADORES ACTIVOS (SUPER USUARIO, DIRECTOR, COORDINADOR, RRHH, ADMIN)
                     Column(
                         modifier = Modifier
+                            .widthIn(max = 800.dp)
                             .fillMaxSize()
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -241,6 +243,7 @@ fun HomeScreenContent(viewModel: HomeViewModel) {
                     // VISTA EMPLEADO REGULAR
                     Column(
                         modifier = Modifier
+                            .widthIn(max = 500.dp)
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState())
                             .padding(24.dp),

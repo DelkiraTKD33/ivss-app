@@ -78,7 +78,8 @@ fun ProfileContent(viewModel: ProfileViewModel) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(MaterialTheme.colorScheme.background)
+                .background(MaterialTheme.colorScheme.background),
+            contentAlignment = Alignment.TopCenter
         ) {
             when (val state = uiState) {
                 is ProfileUiState.Loading -> {
@@ -108,13 +109,14 @@ fun ProfileContent(viewModel: ProfileViewModel) {
 
                     Column(
                         modifier = Modifier
+                            .widthIn(max = 600.dp)
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState())
                             .padding(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Tarjeta Encabezado del Usuario con el Servicio en el Badge
+                        // Tarjeta Encabezado del Usuario
                         ProfileHeaderCard(user = user)
 
                         // Información Personal en blanco por defecto con Lápiz para Editar/Rellenar
@@ -123,8 +125,7 @@ fun ProfileContent(viewModel: ProfileViewModel) {
                             items = listOf(
                                 ProfileInfoItem("Correo Electrónico", user.email),
                                 ProfileInfoItem("Teléfono", user.phone),
-                                ProfileInfoItem("Fecha de Nacimiento", user.birthDate),
-                                ProfileInfoItem("Servicio / Departamento", user.servicio)
+                                ProfileInfoItem("Fecha de Nacimiento", user.birthDate)
                             ),
                             onEditClick = { showEditDialog = true }
                         )
@@ -230,7 +231,7 @@ fun ProfileHeaderCard(user: UserProfile) {
                 )
             )
 
-            // Badge del Servicio del Trabajador (solo visible si posee servicio asignado)
+            // Badge del Servicio del Trabajador
             if (user.servicio.isNotBlank()) {
                 Spacer(modifier = Modifier.height(10.dp))
                 Surface(
@@ -479,7 +480,7 @@ fun EditProfileDialog(
                         datePickerState.selectedDateMillis?.let { millis ->
                             val totalDays = millis / 86400000L
                             val daysSinceEpoch = totalDays.toInt()
-                            var days = daysSinceEpoch + 719468
+                            val days = daysSinceEpoch + 719468
                             val era = (if (days >= 0) days else days - 146096) / 146097
                             val doe = days - era * 146097
                             val yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365

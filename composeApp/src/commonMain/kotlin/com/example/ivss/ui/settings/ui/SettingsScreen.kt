@@ -67,10 +67,12 @@ fun SettingsContent(viewModel: SettingsViewModel) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(MaterialTheme.colorScheme.background)
+                .background(MaterialTheme.colorScheme.background),
+            contentAlignment = Alignment.TopCenter
         ) {
             Column(
                 modifier = Modifier
+                    .widthIn(max = 600.dp)
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp),
