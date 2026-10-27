@@ -6,8 +6,8 @@ import kotlinx.browser.document
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
-    val body = document.body ?: return
-    ComposeViewport(body) {
+    val webApp = document.getElementById("webApp") ?: document.body ?: return
+    ComposeViewport(webApp) {
         App()
     }
 }
