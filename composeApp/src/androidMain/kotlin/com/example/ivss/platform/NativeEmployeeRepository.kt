@@ -304,13 +304,6 @@ actual object NativeEmployeeRepository {
             }
         }
 
-        return if (list.isNotEmpty()) list else listOf(
-            AdminVacationItem(1, "FRANKLIN GARCIA", "V-4.688.627", "Vacaciones Período 2023 - 2024", "Aprobada", 15, 15, "Forma_12-16_Franklin_Garcia.docx"),
-            AdminVacationItem(2, "JENNIFFER HERNANDEZ RON", "V-17.062.973", "Vacaciones Período 2024 - 2025", "En espera", 0, 15, "Forma_12-16_Jenniffer_Hernandez.docx"),
-            AdminVacationItem(3, "WILLIANS MARTINEZ", "V-18.366.056", "Vacaciones Período 2020 - 2021", "Aprobada", 15, 15, "Forma_12-16_Willians_Martinez.docx"),
-            AdminVacationItem(4, "SANTIAGO MORGADO", "V-28.176.135", "Vacaciones Período 2024 - 2025", "En espera", 0, 15, "Forma_12-16_Santiago_Morgado.docx"),
-            AdminVacationItem(5, "ZAIDA PAZ", "V-9.446.776", "Vacaciones Período 2023 - 2024", "En espera", 0, 15, "Forma_12-16_Zaida_Paz.docx"),
-            AdminVacationItem(6, "DIANA CARDOZO", "V-17.353.576", "Vacaciones Período 2022 - 2023", "Aprobada", 15, 15, "Forma_12-16_Diana_Cardozo.docx")
-        )
+        return if (list.isNotEmpty()) list else VacationDataHolder.allVacations
     }
 }

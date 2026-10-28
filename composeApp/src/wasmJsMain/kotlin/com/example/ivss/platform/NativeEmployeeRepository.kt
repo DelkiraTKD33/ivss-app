@@ -31,11 +31,6 @@ actual object NativeEmployeeRepository {
     }
 
     actual fun readAllVacationsForAdmin(): List<AdminVacationItem> {
-        return listOf(
-            AdminVacationItem(1, "FRANKLIN GARCIA", "V-4.688.627", "Vacaciones Período 2023 - 2024", "Aprobada", 15, 15, "Forma_12-16_Franklin_Garcia.docx"),
-            AdminVacationItem(2, "JENNIFFER HERNANDEZ RON", "V-17.062.973", "Vacaciones Período 2024 - 2025", "En espera", 0, 15, "Forma_12-16_Jenniffer_Hernandez.docx"),
-            AdminVacationItem(3, "WILLIANS MARTINEZ", "V-18.366.056", "Vacaciones Período 2020 - 2021", "Aprobada", 15, 15, "Forma_12-16_Willians_Martinez.docx"),
-            AdminVacationItem(4, "SANTIAGO MORGADO", "V-28.176.135", "Vacaciones Período 2024 - 2025", "En espera", 0, 15, "Forma_12-16_Santiago_Morgado.docx")
-        )
+        return VacationDataHolder.allVacations
     }
 }
