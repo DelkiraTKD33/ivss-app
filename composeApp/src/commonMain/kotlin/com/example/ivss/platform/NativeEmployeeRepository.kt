@@ -9,6 +9,7 @@ data class AdminVacationItem(
     val workerCedula: String,
     val periodName: String,
     val status: String,
+    val fechaReintegro: String = "Pendiente",
     val usedDays: Int,
     val totalDays: Int,
     val fileName: String
