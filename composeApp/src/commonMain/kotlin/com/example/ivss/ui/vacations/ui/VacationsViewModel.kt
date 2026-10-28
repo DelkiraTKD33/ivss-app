@@ -13,6 +13,7 @@ import com.example.ivss.platform.FileSaver
 import com.example.ivss.platform.NativeDocxGenerator
 import com.example.ivss.platform.NativeEmployeeRepository
 import com.example.ivss.platform.NativePdfGenerator
+import com.example.ivss.platform.VacationDataHolder
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,6 +35,7 @@ data class VacationItem(
     val id: Int,
     val name: String,
     val status: String,
+    val fechaReintegro: String = "Pendiente",
     val usedDays: Int,
     val totalDays: Int,
     val documentType: DocumentType = DocumentType.WORD,
@@ -64,10 +66,10 @@ class VacationsViewModel(
 
     private val _vacations = mutableStateOf(
         listOf(
-            VacationItem(id = 1, name = "Vacaciones Período 2024 - 2025", status = "En espera", usedDays = 0, totalDays = 15, documentType = DocumentType.WORD),
-            VacationItem(id = 2, name = "Vacaciones Período 2023 - 2024", status = "Aprobada", usedDays = 15, totalDays = 15, documentType = DocumentType.WORD),
-            VacationItem(id = 3, name = "Vacaciones Período 2022 - 2023", status = "Aprobada", usedDays = 15, totalDays = 15, documentType = DocumentType.WORD),
-            VacationItem(id = 4, name = "Adelanto Vacacional 2021 - 2022", status = "Aprobada", usedDays = 15, totalDays = 15, documentType = DocumentType.WORD)
+            VacationItem(id = 1, name = "Vacaciones Período 2024 - 2025", status = "Pendiente por Disfrutar", fechaReintegro = "Pendiente", usedDays = 0, totalDays = 15, documentType = DocumentType.WORD),
+            VacationItem(id = 2, name = "Vacaciones Período 2023 - 2024", status = "En Disfrute", fechaReintegro = "30/10/2025", usedDays = 15, totalDays = 15, documentType = DocumentType.WORD),
+            VacationItem(id = 3, name = "Vacaciones Período 2022 - 2023", status = "Disfrutada", fechaReintegro = "15/08/2024", usedDays = 15, totalDays = 15, documentType = DocumentType.WORD),
+            VacationItem(id = 4, name = "Vacaciones Período 2021 - 2022", status = "Disfrutada", fechaReintegro = "11/11/2022", usedDays = 15, totalDays = 15, documentType = DocumentType.WORD)
         )
     )
     val vacations: State<List<VacationItem>> = _vacations
@@ -89,6 +91,32 @@ class VacationsViewModel(
 
     init {
         loadAdminVacations()
+        viewModelScope.launch {
+            userProfile.collect { profile ->
+                if (profile != null) {
+                    val userCedulaClean = profile.nationalId.replace("V-", "").replace(".", "").trim()
+                    val userVacations = VacationDataHolder.allVacations.filter { item ->
+                        val itemCedulaClean = item.workerCedula.replace("V-", "").replace(".", "").trim()
+                        itemCedulaClean == userCedulaClean || item.workerName.contains(profile.fullName, ignoreCase = true)
+                    }.map { adminItem ->
+                        VacationItem(
+                            id = adminItem.id,
+                            name = adminItem.periodName,
+                            status = adminItem.status,
+                            fechaReintegro = adminItem.fechaReintegro,
+                            usedDays = adminItem.usedDays,
+                            totalDays = adminItem.totalDays,
+                            documentType = DocumentType.WORD,
+                            fileName = adminItem.fileName
+                        )
+                    }
+
+                    if (userVacations.isNotEmpty()) {
+                        _vacations.value = userVacations
+                    }
+                }
+            }
+        }
     }
 
     fun loadAdminVacations() {
@@ -103,13 +131,11 @@ class VacationsViewModel(
         viewModelScope.launch {
             delay(1000)
             val csvText = """
-                TRABAJADOR,CEDULA,PERIODO,ESTADO,DIAS_DISFRUTADOS
-                FRANKLIN GARCIA,V-4.688.627,Vacaciones Período 2023 - 2024,Aprobada,15
-                JENNIFFER HERNANDEZ RON,V-17.062.973,Vacaciones Período 2024 - 2025,En espera,0
-                WILLIANS MARTINEZ,V-18.366.056,Vacaciones Período 2020 - 2021,Aprobada,15
-                SANTIAGO MORGADO,V-28.176.135,Vacaciones Período 2024 - 2025,En espera,0
-                ZAIDA PAZ,V-9.446.776,Vacaciones Período 2023 - 2024,En espera,0
-                DIANA CARDOZO,V-17.353.576,Vacaciones Período 2022 - 2023,Aprobada,15
+                TRABAJADOR,CEDULA,PERIODO,ESTADO,FECHA_REINTEGRO,DIAS_DISFRUTADOS
+                FRANKLIN GARCIA,V-4.688.627,Vacaciones Período 2023 - 2024,Disfrutada,30/10/2025,15
+                JENNIFFER HERNANDEZ RON,V-17.062.973,Vacaciones Período 2024 - 2025,Pendiente por Disfrutar,Pendiente,0
+                WILLIANS MARTINEZ,V-18.366.056,Vacaciones Período 2020 - 2021,Disfrutada,12/02/2025,15
+                SANTIAGO MORGADO,V-28.176.135,Vacaciones Período 2024 - 2025,Pendiente por Disfrutar,Pendiente,0
             """.trimIndent()
             val bytes = csvText.encodeToByteArray()
             val fileName = "Relacion_Vacaciones_RRHH_IVSS.xlsx"
@@ -241,7 +267,8 @@ class VacationsViewModel(
         val newItem = VacationItem(
             id = newId,
             name = name,
-            status = "En espera",
+            status = "Pendiente por Disfrutar",
+            fechaReintegro = "Pendiente",
             usedDays = 0,
             totalDays = if (totalDays > 0) totalDays else 15,
             documentType = DocumentType.WORD
